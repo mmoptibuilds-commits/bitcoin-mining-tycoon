@@ -46,7 +46,7 @@ fun MiningFeedbackLayer(
     val visibleDeltas = remember { mutableStateListOf<ActiveMiningDelta>() }
     val fadeJobs = remember { mutableMapOf<Long, Job>() }
 
-    val animationsEnabled = !reducedMotion && !batteryFriendly
+    val animationsEnabled = FeedbackMotionPolicy.allowsCosmeticMotion(reducedMotion, batteryFriendly)
     LaunchedEffect(events, animationsEnabled) {
         events.collect { event ->
             if (visibleDeltas.size >= GameplayFeedbackBus.MAX_PENDING_EVENTS) {

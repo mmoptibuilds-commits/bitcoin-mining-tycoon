@@ -1,6 +1,7 @@
 package com.antigravity.bitcoinminingtycoon.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -61,7 +62,11 @@ fun CoreMineButton(
 
     val particles = remember { mutableStateListOf<FloatingParticle>() }
 
-    val scale = if (isPressed && !reducedMotion) 0.95f else 1.0f
+    val scale by animateFloatAsState(
+        targetValue = FeedbackMotionPolicy.pressScale(isPressed, reducedMotion),
+        animationSpec = tween(durationMillis = FeedbackMotionPolicy.PRESS_TRANSITION_MILLIS),
+        label = "mine-press-compression"
+    )
 
     Box(
         modifier = modifier
@@ -78,7 +83,7 @@ fun CoreMineButton(
             ) {
                 onMineClick()
 
-                if (!reducedMotion && !batteryFriendly) {
+                if (FeedbackMotionPolicy.allowsCosmeticMotion(reducedMotion, batteryFriendly)) {
                     if (particles.size >= MAX_FLOATING_PARTICLES) {
                         val oldest = particles.removeAt(0)
                         oldest.animationJob?.cancel()

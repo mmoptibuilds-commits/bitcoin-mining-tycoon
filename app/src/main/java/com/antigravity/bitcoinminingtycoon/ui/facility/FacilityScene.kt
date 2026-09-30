@@ -37,6 +37,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
+import com.antigravity.bitcoinminingtycoon.ui.components.FeedbackMotionPolicy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -60,7 +61,9 @@ fun FacilityScene(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val animateFans = !reducedMotion && !batteryFriendly && isResumed && model.visibleUnitCount > 0
+    val animateFans = FeedbackMotionPolicy.shouldAnimateFacilityFans(
+        reducedMotion, batteryFriendly, isResumed, model.visibleUnitCount
+    )
     var fanRotation by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(animateFans) {
         if (!animateFans) {
