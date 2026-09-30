@@ -52,6 +52,8 @@ Verbose Gradle logs and permission output are under ignored `artifacts/m0/`; the
 
 M1 is **software-implemented but not complete**. Source, fixture, JVM, debug package, lint and Android-test compilation evidence are available. No connected Compose result or v1.0 in-place emulator update is claimed; the environment currently has no attached device and the UTP test runner's uncached dependencies are rate-limited.
 
+Implementation commit `0c9c14c` (`feat: harden save migration and game state transactions`) was pushed normally to `v1.2`.
+
 | Check | Performed evidence |
 |---|---|
 | Scope / refs | Work remains on `v1.2`; local `main`/`work`, `origin/main`, `origin/v1.0` and `origin/v1.2` were inspected before this change. `git diff --check` passed. No historical ref was changed. |
