@@ -1,0 +1,25 @@
+# Gradle / Android-generated output
+.gradle/
+**/build/
+.kotlin/
+.idea/
+*.iml
+.cxx/
+.externalNativeBuild/
+local.properties
+# Local signing / credentials
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+.env
+.env.*
+# Local reports and distributed binaries
+artifacts/
+*.apk
+*.aab
+*.apks
+# Temporary agent workspace / OS files
+.superpowers/
+.DS_Store
+Thumbs.db
