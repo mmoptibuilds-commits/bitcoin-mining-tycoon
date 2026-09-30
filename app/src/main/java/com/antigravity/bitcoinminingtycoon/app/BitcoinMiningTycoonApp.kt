@@ -9,6 +9,8 @@ import com.antigravity.bitcoinminingtycoon.data.GameSave
 import com.antigravity.bitcoinminingtycoon.data.GameSaveSerializer
 import com.antigravity.bitcoinminingtycoon.data.SaveRecoveryCheckpoint
 import com.antigravity.bitcoinminingtycoon.platform.AudioTrackSoundPlayer
+import com.antigravity.bitcoinminingtycoon.platform.AndroidHaptics
+import com.antigravity.bitcoinminingtycoon.platform.Haptics
 import com.antigravity.bitcoinminingtycoon.platform.SoundPlayer
 import com.antigravity.bitcoinminingtycoon.platform.SystemClockProvider
 import java.io.File
@@ -22,6 +24,9 @@ class BitcoinMiningTycoonApp : Application() {
         private set
 
     lateinit var soundPlayer: SoundPlayer
+        private set
+
+    lateinit var haptics: Haptics
         private set
 
     override fun onCreate() {
@@ -38,6 +43,7 @@ class BitcoinMiningTycoonApp : Application() {
         )
         val dataSource = DataStoreSaveDataSource(dataStore, recoveryCheckpoint)
         repository = GameRepository(dataSource, clockProvider)
+        haptics = AndroidHaptics(applicationContext)
         soundPlayer = AudioTrackSoundPlayer(
             isSoundEnabled = { repository.gameState.value.settings.soundEnabled }
         )

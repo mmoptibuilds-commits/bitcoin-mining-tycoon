@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
@@ -24,15 +25,21 @@ import androidx.compose.ui.unit.sp
 import com.antigravity.bitcoinminingtycoon.ui.components.ButtonStyle
 import com.antigravity.bitcoinminingtycoon.ui.components.CoreMineButton
 import com.antigravity.bitcoinminingtycoon.ui.components.EventBanner
+import com.antigravity.bitcoinminingtycoon.ui.components.MiningFeedbackLayer
 import com.antigravity.bitcoinminingtycoon.ui.components.TeachingCue
 import com.antigravity.bitcoinminingtycoon.ui.components.TycoonButton
 import com.antigravity.bitcoinminingtycoon.ui.components.WindfallChip
+import com.antigravity.bitcoinminingtycoon.ui.facility.FacilityPresentation
+import com.antigravity.bitcoinminingtycoon.ui.facility.FacilityScene
 import com.antigravity.bitcoinminingtycoon.ui.presentation.DiscoveryPresentation
 import com.antigravity.bitcoinminingtycoon.ui.presentation.DiscoveryCue
 import com.antigravity.bitcoinminingtycoon.ui.presentation.DiscoveryGoal
 import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
 import com.antigravity.bitcoinminingtycoon.viewmodel.GameUiState
+import com.antigravity.bitcoinminingtycoon.viewmodel.MiningFeedbackEvent
 import java.math.BigDecimal
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 @Composable
 fun MineScreen(
@@ -50,7 +57,8 @@ fun MineScreen(
     onClaimDailyReward: () -> Unit = {},
     onCompleteTeachingCue: (String) -> Unit = {},
     onNavigateToHardware: () -> Unit = {},
-    onNavigateToUpgrades: () -> Unit = {}
+    onNavigateToUpgrades: () -> Unit = {},
+    feedbackEvents: Flow<MiningFeedbackEvent> = emptyFlow()
 ) {
     val gameState = uiState.gameState
     val cue = DiscoveryPresentation.nextCue(gameState)
@@ -74,6 +82,24 @@ fun MineScreen(
             )
         }
 
+        val sceneModel = remember(gameState.miners, gameState.highestDiscoveredFacilityStage) {
+            FacilityPresentation.present(gameState)
+        }
+        Box {
+            FacilityScene(
+                model = sceneModel,
+                reducedMotion = gameState.settings.reducedMotion,
+                batteryFriendly = gameState.batteryFriendlyAnimations
+            )
+            MiningFeedbackLayer(
+                events = feedbackEvents,
+                numberFormat = gameState.settings.numberFormat,
+                reducedMotion = gameState.settings.reducedMotion,
+                batteryFriendly = gameState.batteryFriendlyAnimations,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 42.dp, end = 22.dp)
+            )
+        }
+
         BalanceStrip(uiState = uiState)
 
         Surface(color = AppColors.SurfaceLow, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
@@ -88,7 +114,8 @@ fun MineScreen(
                     CoreMineButton(
                         onMineClick = onMineClick,
                         manualHashrateText = "+${gameState.manualHashStrength} hashes per tap",
-                        reducedMotion = gameState.settings.reducedMotion
+                        reducedMotion = gameState.settings.reducedMotion,
+                        batteryFriendly = gameState.batteryFriendlyAnimations
                     )
                 }
                 Text("Tap Mine to add Bitcoin", color = AppColors.TextMedium, fontSize = 12.sp)

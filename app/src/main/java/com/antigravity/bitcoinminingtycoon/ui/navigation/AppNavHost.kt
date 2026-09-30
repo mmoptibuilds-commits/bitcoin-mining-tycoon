@@ -171,7 +171,8 @@ private fun HomeDestination(
                         onClaimDailyReward = viewModel::onClaimDailyReward,
                         onCompleteTeachingCue = viewModel::onCompleteTeachingCue,
                         onNavigateToHardware = { activeTab = RootTab.HARDWARE },
-                        onNavigateToUpgrades = { activeTab = RootTab.UPGRADES }
+                        onNavigateToUpgrades = { activeTab = RootTab.UPGRADES },
+                        feedbackEvents = viewModel.gameplayFeedback
                     )
                     RootTab.HARDWARE -> com.antigravity.bitcoinminingtycoon.ui.screens.hardware.HardwareScreen(
                         uiState = uiState,

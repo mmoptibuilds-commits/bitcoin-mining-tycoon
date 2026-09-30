@@ -7,12 +7,18 @@ import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.platform.SoundEffect
 import com.antigravity.bitcoinminingtycoon.platform.SoundPlayer
 import com.antigravity.bitcoinminingtycoon.platform.FakeClockProvider
+import com.antigravity.bitcoinminingtycoon.platform.HapticSignal
+import com.antigravity.bitcoinminingtycoon.platform.Haptics
 import com.antigravity.bitcoinminingtycoon.model.TeachingCueIds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -29,6 +35,11 @@ class GameViewModelTest {
     private class RecordingSoundPlayer : SoundPlayer {
         val played = mutableListOf<SoundEffect>()
         override fun play(sound: SoundEffect) { played += sound }
+    }
+
+    private class RecordingHaptics : Haptics {
+        val played = mutableListOf<HapticSignal>()
+        override fun play(signal: HapticSignal) { played += signal }
     }
 
     private val testDispatcher = StandardTestDispatcher()
@@ -155,5 +166,123 @@ class GameViewModelTest {
         saleViewModel.onCompleteTeachingCue(TeachingCueIds.PASSIVE_MINING)
         advanceUntilIdle()
         assertTrue(TeachingCueIds.PASSIVE_MINING in saleRepository.gameState.value.completedTeachingCueIds)
+    }
+
+    @Test
+    fun successfulPurchasePersistsTheHighestDiscoveredFacilityStage() = testScope.runTest {
+        val source = FakeSaveDataSource(
+            GameSave(
+                usd = "2500.00",
+                stats = com.antigravity.bitcoinminingtycoon.model.StatsState(lifetimeBtcMined = "0.05")
+            )
+        )
+        val repository = GameRepository(source, clock, this)
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+
+        viewModel.onBuyMiner("gpu_rig_6x")
+        advanceUntilIdle()
+
+        assertEquals(1L, repository.gameState.value.miners["gpu_rig_6x"])
+        assertEquals(2, repository.gameState.value.highestDiscoveredFacilityStage)
+        assertEquals(2, source.saveFlow.first().highestDiscoveredFacilityStage)
+    }
+
+    @Test
+    fun hapticSignalsFollowActionsAndRespectTheSavedSetting() = testScope.runTest {
+        val enabledSource = FakeSaveDataSource()
+        val enabledRepository = GameRepository(enabledSource, clock, this)
+        val enabledHaptics = RecordingHaptics()
+        val enabledViewModel = GameViewModel(enabledRepository, clock, haptics = enabledHaptics)
+        advanceUntilIdle()
+
+        enabledViewModel.onManualMineTap()
+        advanceUntilIdle()
+        assertEquals(listOf(HapticSignal.TAP, HapticSignal.MILESTONE), enabledHaptics.played)
+
+        val purchaseSource = FakeSaveDataSource(
+            GameSave(
+                usd = "10.00",
+                stats = com.antigravity.bitcoinminingtycoon.model.StatsState(lifetimeBtcMined = "0.1")
+            )
+        )
+        val purchaseRepository = GameRepository(purchaseSource, clock, this)
+        val purchaseHaptics = RecordingHaptics()
+        val purchaseViewModel = GameViewModel(purchaseRepository, clock, haptics = purchaseHaptics)
+        advanceUntilIdle()
+        purchaseViewModel.onBuyMiner("ancient_cpu")
+        advanceUntilIdle()
+        assertEquals(listOf(HapticSignal.PURCHASE), purchaseHaptics.played)
+
+        val disabledSource = FakeSaveDataSource(
+            GameSave(settings = com.antigravity.bitcoinminingtycoon.model.SettingsState(hapticsEnabled = false))
+        )
+        val disabledRepository = GameRepository(disabledSource, clock, this)
+        val disabledHaptics = RecordingHaptics()
+        val disabledViewModel = GameViewModel(disabledRepository, clock, haptics = disabledHaptics)
+        advanceUntilIdle()
+
+        disabledViewModel.onManualMineTap()
+        advanceUntilIdle()
+        assertTrue(disabledHaptics.played.isEmpty())
+    }
+
+    @Test
+    fun passiveAchievementUsesMilestoneHaptic() = testScope.runTest {
+        val repository = GameRepository(
+            FakeSaveDataSource(GameSave(stats = com.antigravity.bitcoinminingtycoon.model.StatsState(totalManualTaps = 1L))),
+            clock,
+            this
+        )
+        val haptics = RecordingHaptics()
+        val viewModel = GameViewModel(repository, clock, haptics = haptics)
+        advanceUntilIdle()
+
+        viewModel.startTicker()
+        clock.advanceMonotonicNanos(100_000_000L)
+        advanceTimeBy(100L)
+        runCurrent()
+        viewModel.stopTicker()
+        advanceUntilIdle()
+
+        assertEquals(listOf(HapticSignal.MILESTONE), haptics.played)
+    }
+
+    @Test
+    fun confirmedPrestigeUsesPrestigeHaptic() = testScope.runTest {
+        val repository = GameRepository(
+            FakeSaveDataSource(
+                GameSave(stats = com.antigravity.bitcoinminingtycoon.model.StatsState(lifetimeBtcMined = "1"))
+            ),
+            clock,
+            this
+        )
+        val haptics = RecordingHaptics()
+        val viewModel = GameViewModel(repository, clock, haptics = haptics)
+        advanceUntilIdle()
+
+        viewModel.onShowPrestigeSheet()
+        viewModel.onConfirmPrestige()
+        advanceUntilIdle()
+
+        assertEquals(1L, repository.gameState.value.satoshiPoints)
+        assertEquals(listOf(HapticSignal.PRESTIGE), haptics.played)
+    }
+
+    @Test
+    fun successfulMinePublishesTheActualProducedBitcoinDelta() = testScope.runTest {
+        val repository = GameRepository(FakeSaveDataSource(), clock, this)
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+        val nextFeedback = async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+            viewModel.gameplayFeedback.first()
+        }
+
+        viewModel.onManualMineTap()
+        advanceUntilIdle()
+        val event = nextFeedback.await()
+
+        assertEquals(1L, event.sequence)
+        assertEquals(0, BigDecimal("0.0000025").compareTo(BigDecimal(event.btcDelta)))
     }
 }

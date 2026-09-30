@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
 import com.antigravity.bitcoinminingtycoon.content.Miners
+import com.antigravity.bitcoinminingtycoon.content.FacilityStageCatalog
 import com.antigravity.bitcoinminingtycoon.data.GameRepository
 import com.antigravity.bitcoinminingtycoon.data.MutationDurability
 import com.antigravity.bitcoinminingtycoon.data.MutationResult
@@ -15,6 +16,9 @@ import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.model.TeachingCueIds
 import com.antigravity.bitcoinminingtycoon.platform.ClockProvider
 import com.antigravity.bitcoinminingtycoon.platform.NoOpSoundPlayer
+import com.antigravity.bitcoinminingtycoon.platform.HapticSignal
+import com.antigravity.bitcoinminingtycoon.platform.Haptics
+import com.antigravity.bitcoinminingtycoon.platform.NoOpHaptics
 import com.antigravity.bitcoinminingtycoon.platform.SoundEffect
 import com.antigravity.bitcoinminingtycoon.platform.SoundPlayer
 import com.antigravity.bitcoinminingtycoon.util.NumberFormatter
@@ -29,6 +33,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.util.concurrent.atomic.AtomicLong
 
 data class GameUiState(
     val btcFormatted: String = "0.00000000 BTC",
@@ -59,8 +64,13 @@ data class GameUiState(
 class GameViewModel(
     val repository: GameRepository,
     val clockProvider: ClockProvider,
-    val soundPlayer: SoundPlayer = NoOpSoundPlayer
+    val soundPlayer: SoundPlayer = NoOpSoundPlayer,
+    private val haptics: Haptics = NoOpHaptics
 ) : ViewModel() {
+
+    private val feedbackBus = GameplayFeedbackBus()
+    private val feedbackSequence = AtomicLong(0L)
+    val gameplayFeedback = feedbackBus.events
 
     private var tickerJob: Job? = null
     private var lastMonotonicNanos: Long = 0L
@@ -163,6 +173,7 @@ class GameViewModel(
                     }
                     if (result is MutationResult.Applied && unlocked != null) {
                         _unlockedAchievement.value = unlocked
+                        playHaptic(result.state, HapticSignal.MILESTONE)
                         soundPlayer.play(SoundEffect.ACHIEVEMENT)
                     }
                 }
@@ -191,18 +202,28 @@ class GameViewModel(
     fun onManualMineTap() {
         viewModelScope.launch {
             var unlocked: com.antigravity.bitcoinminingtycoon.content.AchievementDefinition? = null
+            var btcDelta = BigDecimal.ZERO
             val result = repository.mutateLatest(MutationDurability.COALESCED) { current ->
                 GameEngine.performManualTap(current).copy(
                     completedTeachingCueIds = current.completedTeachingCueIds + TeachingCueIds.MINE_BITCOIN
                 ).also { next ->
+                    btcDelta = next.btcBigDecimal.subtract(current.btcBigDecimal)
                     val id = (next.achievements - current.achievements).firstOrNull()
                     if (id != null) unlocked = com.antigravity.bitcoinminingtycoon.content.Achievements.getById(id)
                 }
             }
             if (result is MutationResult.Applied && result.changed) {
+                feedbackBus.publish(
+                    MiningFeedbackEvent(
+                        sequence = feedbackSequence.incrementAndGet(),
+                        btcDelta = btcDelta.toPlainString()
+                    )
+                )
+                playHaptic(result.state, HapticSignal.TAP)
                 soundPlayer.play(SoundEffect.TAP)
                 if (unlocked != null) {
                     _unlockedAchievement.value = unlocked
+                    playHaptic(result.state, HapticSignal.MILESTONE)
                     soundPlayer.play(SoundEffect.ACHIEVEMENT)
                 }
             }
@@ -249,9 +270,17 @@ class GameViewModel(
         viewModelScope.launch {
             val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
                 val bought = com.antigravity.bitcoinminingtycoon.engine.FleetEngine.buyMiner(it, minerId, _bulkMode.value)
-                if (bought != it && it.miners.values.none { count -> count > 0L }) {
-                    bought.copy(completedTeachingCueIds = bought.completedTeachingCueIds + TeachingCueIds.BUY_FIRST_MACHINE)
-                } else bought
+                if (bought == it) return@mutateLatest it
+
+                val discoveredStage = FacilityStageCatalog.stageIndexForMiner(minerId)
+                bought.copy(
+                    completedTeachingCueIds = if (it.miners.values.none { count -> count > 0L }) {
+                        bought.completedTeachingCueIds + TeachingCueIds.BUY_FIRST_MACHINE
+                    } else bought.completedTeachingCueIds,
+                    highestDiscoveredFacilityStage = discoveredStage?.let {
+                        maxOf(bought.highestDiscoveredFacilityStage, it)
+                    } ?: bought.highestDiscoveredFacilityStage
+                )
             }
             playMutationFeedback(result, SoundEffect.BUY, SoundEffect.INVALID)
         }
@@ -328,6 +357,7 @@ class GameViewModel(
             }
             if (result is MutationResult.Applied && result.changed) {
                 _prestigeSheetVisible.value = false
+                playHaptic(result.state, HapticSignal.PRESTIGE)
                 soundPlayer.play(SoundEffect.PRESTIGE)
             }
         }
@@ -381,9 +411,26 @@ class GameViewModel(
 
     private fun playMutationFeedback(result: MutationResult, success: SoundEffect?, invalid: SoundEffect?) {
         when (result) {
-            is MutationResult.Applied -> if (result.changed && success != null) soundPlayer.play(success)
-                else if (!result.changed && invalid != null) soundPlayer.play(invalid)
+            is MutationResult.Applied -> if (result.changed && success != null) {
+                soundPlayer.play(success)
+                hapticFor(success)?.let { playHaptic(result.state, it) }
+            } else if (!result.changed && invalid != null) {
+                soundPlayer.play(invalid)
+                hapticFor(invalid)?.let { playHaptic(result.state, it) }
+            }
             is MutationResult.Blocked, is MutationResult.PersistenceFailed -> Unit
         }
+    }
+
+    private fun playHaptic(state: GameState, signal: HapticSignal) {
+        if (state.settings.hapticsEnabled) haptics.play(signal)
+    }
+
+    private fun hapticFor(sound: SoundEffect): HapticSignal? = when (sound) {
+        SoundEffect.TAP -> HapticSignal.TAP
+        SoundEffect.BUY -> HapticSignal.PURCHASE
+        SoundEffect.INVALID -> HapticSignal.INVALID
+        SoundEffect.ACHIEVEMENT, SoundEffect.EVENT, SoundEffect.DAILY_REWARD -> HapticSignal.MILESTONE
+        SoundEffect.PRESTIGE -> HapticSignal.PRESTIGE
     }
 }

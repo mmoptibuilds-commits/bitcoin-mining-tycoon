@@ -3,6 +3,7 @@ package com.antigravity.bitcoinminingtycoon.data.migrations
 import com.antigravity.bitcoinminingtycoon.data.GameSave
 import com.antigravity.bitcoinminingtycoon.data.SaveMigrationResult
 import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
+import com.antigravity.bitcoinminingtycoon.content.FacilityStageCatalog
 import com.antigravity.bitcoinminingtycoon.engine.PrestigeEngine
 import com.antigravity.bitcoinminingtycoon.model.ActiveEventState
 import com.antigravity.bitcoinminingtycoon.model.GameState
@@ -394,21 +395,7 @@ object SaveMigrations {
         }
     }
 
-    private fun highestStage(miners: Map<String, Long>): Int {
-        val stages = listOf(
-            setOf("ancient_cpu", "gaming_cpu"),
-            setOf("gaming_gpu"),
-            setOf("dual_gpu_rig", "gpu_rig_6x"),
-            setOf("entry_asic", "industrial_asic"),
-            setOf("asic_rack", "server_room", "mining_warehouse"),
-            setOf("mining_farm", "hydro_facility", "geothermal_complex", "nuclear_campus"),
-            setOf("immersion_megafarm", "fusion_complex"),
-            setOf("orbital_solar_miner"),
-            setOf("lunar_mining_array", "quantum_hash_facility"),
-            setOf("dyson_hash_swarm")
-        )
-        return stages.indexOfLast { group -> group.any { (miners[it] ?: 0L) > 0L } }.coerceAtLeast(0)
-    }
+    private fun highestStage(miners: Map<String, Long>): Int = FacilityStageCatalog.highestOwnedStage(miners)
 
     private fun fractional(root: JsonObject): String {
         val value = decimal(root, "playtimeFractionalSeconds", "0")
