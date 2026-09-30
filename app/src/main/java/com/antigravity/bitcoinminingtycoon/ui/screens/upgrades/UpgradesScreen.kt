@@ -31,12 +31,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected as semanticsSelected
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
-import com.antigravity.bitcoinminingtycoon.content.UpgradeCategory
 import com.antigravity.bitcoinminingtycoon.content.UpgradeDefinition
 import com.antigravity.bitcoinminingtycoon.content.Upgrades
 import com.antigravity.bitcoinminingtycoon.engine.PowerEngine
@@ -63,18 +63,27 @@ fun UpgradesScreen(
     onUpgradePowerGrid: () -> Unit,
     onUpgradeCooling: () -> Unit,
     onNavigateToSatoshiTree: () -> Unit,
+    onNavigateToMine: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedCategory by remember { mutableStateOf(UpgradeCategory.ALL) }
+    var selectedGroup by remember { mutableStateOf(UpgradeGroup.ALL) }
     val gameState = uiState.gameState
 
-    val filteredUpgrades = remember(selectedCategory, gameState.purchasedUpgrades) {
-        if (selectedCategory == UpgradeCategory.ALL) {
-            Upgrades.ALL
-        } else {
-            Upgrades.ALL.filter { it.category == selectedCategory }
-        }
+    val visibleSubgroups = remember(selectedGroup) {
+        selectedGroup.subgroups()
     }
+    val nextInvestmentCost = remember(gameState) {
+        buildList {
+            PowerEngine.getNextPowerStage(gameState)?.let { add(it.costUsd) }
+            ThermalEngine.getNextCoolingStage(gameState)?.let { add(it.costUsd) }
+            Upgrades.ALL.asSequence()
+                .filter { it.id !in gameState.purchasedUpgrades && UpgradeEngine.isUnlocked(it, gameState) }
+                .map { it.costUsd }
+                .forEach(::add)
+        }.minOrNull()
+    }
+    val sellBitcoinForFunds = uiState.gameState.btcBigDecimal.signum() > 0 &&
+        nextInvestmentCost != null && uiState.gameState.usdBigDecimal < nextInvestmentCost
 
     LazyColumn(
         modifier = modifier
@@ -111,6 +120,34 @@ fun UpgradesScreen(
             }
         }
 
+        if (sellBitcoinForFunds) {
+            item(key = "investment_funding_route") {
+                val deficit = nextInvestmentCost.subtract(gameState.usdBigDecimal, GameNumber.MATH_CONTEXT)
+                TycoonCard(borderColor = AppColors.BorderFocus) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "TURN BITCOIN INTO INVESTMENT CASH",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AppColors.PrimaryCopper
+                        )
+                        Text(
+                            text = "Your lowest-cost available improvement is short by ${NumberFormatter.formatUsd(deficit, gameState.settings.numberFormat)}. Sell mined Bitcoin on Mine, then return here.",
+                            fontSize = 12.sp,
+                            color = AppColors.TextMedium
+                        )
+                        TycoonButton(
+                            text = "Open Mine to sell Bitcoin",
+                            onClick = onNavigateToMine,
+                            style = ButtonStyle.SECONDARY,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentDescriptionText = "Open Mine to sell Bitcoin for upgrades"
+                        )
+                    }
+                }
+            }
+        }
+
         // 2. Dedicated Infrastructure Upgrade Tracks (Decision D012)
         item(key = "infrastructure_power") {
             PowerGridInfrastructureCard(
@@ -136,22 +173,27 @@ fun UpgradesScreen(
 
         // 4. Upgrade Category Filter Chips
         item(key = "category_filters") {
-            UpgradeCategoryFilterRow(
-                selected = selectedCategory,
-                onSelect = { selectedCategory = it }
+            UpgradeGroupFilterRow(
+                selected = selectedGroup,
+                onSelect = { selectedGroup = it }
             )
         }
 
         // 5. Data-driven Upgrades List
-        items(
-            items = filteredUpgrades,
-            key = { it.id }
-        ) { upgrade ->
-            UpgradeItemCard(
-                upgrade = upgrade,
-                gameState = gameState,
-                onBuy = { onBuyUpgrade(upgrade.id) }
-            )
+        visibleSubgroups.forEach { subgroup ->
+            item(key = "upgrade_group_${subgroup.category.name}") {
+                UpgradeTrackHeading(
+                    groupLabel = selectedGroup.label,
+                    subgroup = subgroup
+                )
+            }
+            items(items = subgroup.upgrades, key = { it.id }) { upgrade ->
+                UpgradeItemCard(
+                    upgrade = upgrade,
+                    gameState = gameState,
+                    onBuy = { onBuyUpgrade(upgrade.id) }
+                )
+            }
         }
     }
 }
@@ -363,16 +405,16 @@ private fun SatoshiPortalCard(
 }
 
 @Composable
-private fun UpgradeCategoryFilterRow(
-    selected: UpgradeCategory,
-    onSelect: (UpgradeCategory) -> Unit
+private fun UpgradeGroupFilterRow(
+    selected: UpgradeGroup,
+    onSelect: (UpgradeGroup) -> Unit
 ) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        items(UpgradeCategory.values()) { category ->
-            val isSelected = category == selected
+        items(UpgradeGroup.entries) { group ->
+            val isSelected = group == selected
             val bg = if (isSelected) AppColors.PrimaryCopperDark else AppColors.SurfaceLow
             val border = if (isSelected) AppColors.PrimaryCopper else AppColors.BorderSubtle
             val text = if (isSelected) AppColors.PrimaryCopperHover else AppColors.TextMedium
@@ -385,15 +427,19 @@ private fun UpgradeCategoryFilterRow(
                     .border(1.dp, border, RoundedCornerShape(8.dp))
                     .clickable(
                         role = Role.RadioButton,
-                        onClickLabel = "Filter by ${category.label}"
+                        onClickLabel = "Show ${group.label} upgrade track"
                     ) {
-                        onSelect(category)
+                        onSelect(group)
+                    }
+                    .semantics {
+                        semanticsSelected = isSelected
+                        contentDescription = "Show ${group.label} upgrade track"
                     }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = category.label,
+                    text = group.label,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
@@ -492,7 +538,7 @@ private fun UpgradeItemCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "LOCKED — REQUIRES PREREQUISITE UPGRADE",
+                            text = UpgradeLockReason.describe(upgrade, gameState).uppercase(),
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,

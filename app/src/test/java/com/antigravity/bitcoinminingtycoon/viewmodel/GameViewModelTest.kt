@@ -71,6 +71,26 @@ class GameViewModelTest {
     }
 
     @Test
+    fun batteryFriendlyPreferencePersistsWithoutChangingOtherSettings() = testScope.runTest {
+        val initialSettings = com.antigravity.bitcoinminingtycoon.model.SettingsState(
+            soundEnabled = false,
+            hapticsEnabled = false,
+            reducedMotion = true
+        )
+        val source = FakeSaveDataSource(GameSave(settings = initialSettings))
+        val repository = GameRepository(source, clock, this)
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+
+        viewModel.onSetBatteryFriendlyAnimations(true)
+        advanceUntilIdle()
+
+        assertTrue(repository.gameState.value.batteryFriendlyAnimations)
+        assertEquals(initialSettings, repository.gameState.value.settings)
+        assertTrue(source.saveFlow.first().batteryFriendlyAnimations)
+    }
+
+    @Test
     fun onQuickSell_convertsExactPercentageToUsd() = testScope.runTest {
         val initialSave = GameSave(
             btc = "1.00000000",

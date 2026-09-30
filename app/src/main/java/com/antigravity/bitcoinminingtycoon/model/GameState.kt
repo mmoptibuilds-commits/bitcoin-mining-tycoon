@@ -62,6 +62,7 @@ data class StatsState(
     val dailyRewardBtc: String = "0",
     val windfallBtc: String = "0",
     val achievementRewardBtc: String = "0",
+    val sourceBreakdownTrackedSinceV12: Boolean = true,
     val playtimeFractionalSeconds: String = "0",
     val powerEnergyHistory: List<PowerEnergySample> = emptyList(),
     val peakTemperatureC: Double = 25.0,
@@ -128,6 +129,11 @@ data class GameState(
     val manualHashBigDecimal: BigDecimal get() = GameNumber.fromString(manualHashStrength)
     val marketPriceBigDecimal: BigDecimal get() = GameNumber.fromString(marketPrice)
     val autoSellThresholdBigDecimal: BigDecimal get() = GameNumber.fromString(autoSellThresholdUsd)
+    val totalOwnedMinerCount: Long
+        get() = miners.values.fold(0L) { total, count ->
+            val owned = count.coerceAtLeast(0L)
+            if (total > Long.MAX_VALUE - owned) Long.MAX_VALUE else total + owned
+        }
 
     fun withBtc(newBtc: BigDecimal): GameState =
         copy(btc = newBtc.toPlainString())

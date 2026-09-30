@@ -161,7 +161,7 @@ class EventAchievementTest {
     @Test
     fun testHardwareAndInfrastructureAchievements() {
         val state = GameState(
-            miners = mapOf("antminer_s1" to 1L),
+            miners = mapOf("entry_asic" to 1L),
             powerGridTier = 2,
             coolingTier = 2,
             stats = StatsState(totalMinersPurchased = 1L)

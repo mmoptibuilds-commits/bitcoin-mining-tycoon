@@ -22,5 +22,8 @@ sealed interface AppDestination : NavKey {
     data object Settings : AppDestination
 
     @Serializable
+    data object About : AppDestination
+
+    @Serializable
     data object SatoshiTree : AppDestination
 }

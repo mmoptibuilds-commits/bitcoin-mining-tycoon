@@ -202,6 +202,9 @@ object SaveMigrations {
                 ).forEach { nonNegativeLong(obj, it) }
                 if (!wasSchemaOne) listOf("prestigePointsBaselineV2", "prestigePointsEarnedSinceV2", "dailyPointsEarnedSinceV2")
                     .forEach { nonNegativeLong(obj, it) }
+                obj["sourceBreakdownTrackedSinceV12"]?.let {
+                    if ((it as? JsonPrimitive)?.booleanOrNull == null) warnings += "Invalid stats.sourceBreakdownTrackedSinceV12"
+                }
                 if (!wasSchemaOne) {
                     val fraction = obj.string("playtimeFractionalSeconds")?.let { runCatching { BigDecimal(it) }.getOrNull() }
                     if (fraction != null && (fraction.signum() < 0 || fraction >= BigDecimal.ONE)) warnings += "Invalid stats.playtimeFractionalSeconds"
@@ -314,6 +317,7 @@ object SaveMigrations {
             dailyRewardBtc = if (wasSchemaOne) "0" else decimal(root, "dailyRewardBtc", "0"),
             windfallBtc = if (wasSchemaOne) "0" else decimal(root, "windfallBtc", "0"),
             achievementRewardBtc = if (wasSchemaOne) "0" else decimal(root, "achievementRewardBtc", "0"),
+            sourceBreakdownTrackedSinceV12 = if (wasSchemaOne) false else root.bool("sourceBreakdownTrackedSinceV12", false),
             playtimeFractionalSeconds = if (wasSchemaOne) "0" else fractional(root),
             powerEnergyHistory = if (wasSchemaOne) emptyList() else readPowerHistory(root["powerEnergyHistory"]).takeLast(288),
             peakTemperatureC = if (wasSchemaOne) 25.0 else root.finiteDouble("peakTemperatureC", 25.0, -100.0, 10_000.0),

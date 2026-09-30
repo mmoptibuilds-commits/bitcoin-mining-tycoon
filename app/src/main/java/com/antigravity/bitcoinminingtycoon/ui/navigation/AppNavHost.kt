@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -44,6 +45,7 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import com.antigravity.bitcoinminingtycoon.data.SaveReadiness
 import com.antigravity.bitcoinminingtycoon.ui.components.AchievementBanner
+import com.antigravity.bitcoinminingtycoon.ui.screens.settings.AppVersionInfo
 import com.antigravity.bitcoinminingtycoon.ui.screens.SaveReadinessScreen
 import com.antigravity.bitcoinminingtycoon.ui.screens.mine.MineScreen
 import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
@@ -55,6 +57,18 @@ fun AppNavHost(
     viewModel: GameViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val appVersionInfo = remember(context) {
+        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        val appInfo = context.packageManager.getApplicationInfo(context.packageName, 0)
+        AppVersionInfo(
+            packageName = context.packageName,
+            versionName = packageInfo.versionName ?: "Unknown",
+            versionCode = packageInfo.longVersionCode,
+            minimumAndroidApi = appInfo.minSdkVersion,
+            buildVariant = if (appInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) "debug" else "release"
+        )
+    }
     val uiState by viewModel.uiState.collectAsState()
     val prestigeSheetVisible by viewModel.prestigeSheetVisible.collectAsState()
     if (uiState.saveReadiness != SaveReadiness.Ready) {
@@ -97,13 +111,25 @@ fun AppNavHost(
                 entry<AppDestination.Settings> {
                     com.antigravity.bitcoinminingtycoon.ui.screens.settings.SettingsScreen(
                         settings = uiState.gameState.settings,
+                        batteryFriendlyAnimations = uiState.gameState.batteryFriendlyAnimations,
                         onBackClick = { popBackStack(backStack) },
                         onUpdateSettings = viewModel::onUpdateSettings,
+                        onBatteryFriendlyAnimationsChanged = viewModel::onSetBatteryFriendlyAnimations,
+                        onOpenAbout = { backStack.add(AppDestination.About) },
                         onFactoryReset = {
                             viewModel.onFactoryReset()
                             while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
                         }
                     )
+                }
+                entry<AppDestination.About> {
+                    Column(Modifier.fillMaxSize().background(AppColors.Background)) {
+                        DetailTopBar(title = "About", onBack = { popBackStack(backStack) })
+                        com.antigravity.bitcoinminingtycoon.ui.screens.settings.AboutScreen(
+                            versionInfo = appVersionInfo,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
                 entry<AppDestination.SatoshiTree> {
                     com.antigravity.bitcoinminingtycoon.ui.screens.prestige.SatoshiTreeScreen(
@@ -178,14 +204,17 @@ private fun HomeDestination(
                         uiState = uiState,
                         bulkMode = uiState.bulkMode,
                         onBulkModeSelected = viewModel::onSetBulkMode,
-                        onBuyMiner = viewModel::onBuyMiner
+                        onBuyMiner = viewModel::onBuyMiner,
+                        onOpenUpgrades = { activeTab = RootTab.UPGRADES },
+                        onOpenMine = { activeTab = RootTab.MINE }
                     )
                     RootTab.UPGRADES -> com.antigravity.bitcoinminingtycoon.ui.screens.upgrades.UpgradesScreen(
                         uiState = uiState,
                         onBuyUpgrade = viewModel::onBuyUpgrade,
                         onUpgradePowerGrid = viewModel::onUpgradePowerGrid,
                         onUpgradeCooling = viewModel::onUpgradeCooling,
-                        onNavigateToSatoshiTree = onOpenSatoshiTree
+                        onNavigateToSatoshiTree = onOpenSatoshiTree,
+                        onNavigateToMine = { activeTab = RootTab.MINE }
                     )
                 }
             }

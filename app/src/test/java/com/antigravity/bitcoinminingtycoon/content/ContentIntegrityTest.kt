@@ -1,5 +1,6 @@
 package com.antigravity.bitcoinminingtycoon.content
 
+import com.antigravity.bitcoinminingtycoon.model.GameState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -26,6 +27,9 @@ class ContentIntegrityTest {
             assertTrue("Unknown prerequisite on ${upgrade.id}", upgrade.prerequisiteUpgradeId == null || upgrade.prerequisiteUpgradeId in upgradeById)
         }
         assertTrue(hasNoUpgradePrerequisiteCycles(upgradeById))
+
+        assertTrue(Achievements.getById("asic_vanguard")!!.isSatisfied(GameState(miners = mapOf("entry_asic" to 1L))))
+        assertTrue(Achievements.getById("modern_density")!!.isSatisfied(GameState(miners = mapOf("industrial_asic" to 1L))))
     }
 
     @Test

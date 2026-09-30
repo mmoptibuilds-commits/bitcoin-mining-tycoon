@@ -48,8 +48,11 @@ import com.antigravity.bitcoinminingtycoon.util.NumberFormatPreference
 @Composable
 fun SettingsScreen(
     settings: SettingsState,
+    batteryFriendlyAnimations: Boolean,
     onBackClick: () -> Unit,
     onUpdateSettings: (SettingsState) -> Unit,
+    onBatteryFriendlyAnimationsChanged: (Boolean) -> Unit,
+    onOpenAbout: () -> Unit,
     onFactoryReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -131,6 +134,13 @@ fun SettingsScreen(
                             checked = settings.reducedMotion,
                             onCheckedChange = { onUpdateSettings(settings.copy(reducedMotion = it)) }
                         )
+
+                        ToggleRow(
+                            label = "Battery-friendly scene",
+                            description = "Pause decorative scene motion and mining particles",
+                            checked = batteryFriendlyAnimations,
+                            onCheckedChange = onBatteryFriendlyAnimationsChanged
+                        )
                     }
                 }
             }
@@ -192,11 +202,12 @@ fun SettingsScreen(
                             color = AppColors.TextMedium,
                             lineHeight = 16.sp
                         )
-                        Text(
-                            text = "Build: Version 1.0.0 (API 31+ Native)",
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = AppColors.TextDisabled
+                        TycoonButton(
+                            text = "ABOUT THIS APP",
+                            onClick = onOpenAbout,
+                            style = ButtonStyle.SECONDARY,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentDescriptionText = "About Bitcoin Mining Tycoon"
                         )
                     }
                 }
@@ -255,7 +266,7 @@ fun SettingsScreen(
                         color = AppColors.CriticalRed
                     )
                     Text(
-                        text = "Are you absolutely sure you want to wipe all game data? This action cannot be undone.",
+                        text = "This erases balances, machines, upgrades, events, statistics, achievements, prestige points and settings from this device. No real currency or account is involved. This action cannot be undone.",
                         fontSize = 13.sp,
                         color = AppColors.TextHigh
                     )
@@ -326,6 +337,10 @@ private fun ToggleRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            modifier = Modifier.semantics {
+                role = Role.Switch
+                contentDescription = "$label. $description"
+            },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = AppColors.Background,
                 checkedTrackColor = AppColors.PrimaryCopper,

@@ -378,6 +378,14 @@ class GameViewModel(
         }
     }
 
+    fun onSetBatteryFriendlyAnimations(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                it.copy(batteryFriendlyAnimations = enabled)
+            }
+        }
+    }
+
     fun onCompleteOnboarding() {
         viewModelScope.launch {
             repository.mutateLatest(MutationDurability.IMMEDIATE) { it.copy(onboardingCompleted = true) }

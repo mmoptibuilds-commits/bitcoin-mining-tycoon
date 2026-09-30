@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,10 +24,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.antigravity.bitcoinminingtycoon.content.AchievementCategory
@@ -37,16 +39,15 @@ import com.antigravity.bitcoinminingtycoon.content.AchievementDefinition
 import com.antigravity.bitcoinminingtycoon.content.Achievements
 import com.antigravity.bitcoinminingtycoon.ui.components.TycoonCard
 import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
-import com.antigravity.bitcoinminingtycoon.util.NumberFormatter
 import com.antigravity.bitcoinminingtycoon.viewmodel.GameUiState
-import java.util.concurrent.TimeUnit
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 @Composable
 fun StatsScreen(
     uiState: GameUiState,
     modifier: Modifier = Modifier
 ) {
-    val stats = uiState.gameState.stats
     val unlockedSet = uiState.gameState.achievements
 
     var selectedCategory by remember { mutableStateOf<AchievementCategory?>(null) }
@@ -59,9 +60,9 @@ fun StatsScreen(
         }
     }
 
-    val playtimeHours = TimeUnit.SECONDS.toHours(stats.totalPlaytimeSeconds)
-    val playtimeMins = TimeUnit.SECONDS.toMinutes(stats.totalPlaytimeSeconds) % 60
-    val playtimeText = "${playtimeHours}h ${playtimeMins}m"
+    val statistics = remember(uiState.gameState) {
+        StatsBreakdown.sections(uiState.gameState)
+    }
 
     LazyColumn(
         modifier = modifier
@@ -70,7 +71,6 @@ fun StatsScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Operational Telemetry Section
         item {
             Text(
                 text = "FACILITY TELEMETRY",
@@ -81,22 +81,17 @@ fun StatsScreen(
             )
         }
 
-        item {
+        items(statistics, key = { "stats_${it.title}" }) { section ->
             TycoonCard {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatRow("Lifetime Bitcoin Mined", NumberFormatter.formatBtc(stats.lifetimeBtcBigDecimal, uiState.gameState.settings.numberFormat))
-                    StatRow("Lifetime Revenue", NumberFormatter.formatUsd(stats.lifetimeUsdBigDecimal, uiState.gameState.settings.numberFormat))
-                    StatRow("Peak Hashrate", NumberFormatter.formatHashrate(stats.peakHashrateBigDecimal))
-                    StatRow("Manual MINE Taps", "${stats.totalManualTaps}")
-                    StatRow("Hardware Units Deployed", "${stats.totalMinersPurchased}")
-                    StatRow("Technologies Installed", "${stats.totalUpgradesPurchased}")
-                    StatRow("Bitcoin Liquidated", NumberFormatter.formatBtc(stats.totalBtcSoldBigDecimal, uiState.gameState.settings.numberFormat))
-                    StatRow("Highest Spot Price", NumberFormatter.formatUsd(stats.highestPriceBigDecimal, uiState.gameState.settings.numberFormat))
-                    StatRow("Lowest Spot Price", NumberFormatter.formatUsd(stats.lowestPriceBigDecimal, uiState.gameState.settings.numberFormat))
-                    StatRow("Events Encountered", "${stats.totalEventsTriggered}")
-                    StatRow("Total Prestiges Executed", "${stats.totalPrestiges}")
-                    StatRow("Lifetime Satoshi Points", "${stats.lifetimeSatoshiPointsEarned} SP")
-                    StatRow("Total Facility Uptime", playtimeText)
+                    Text(
+                        text = section.title.uppercase(),
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.PrimaryCopper
+                    )
+                    section.rows.forEach { row -> StatRow(row.label, row.value) }
                 }
             }
         }
@@ -153,7 +148,16 @@ fun StatsScreen(
         // Achievement Items
         items(filteredAchievements, key = { it.id }) { achievement ->
             val isUnlocked = achievement.id in unlockedSet
-            AchievementItemCard(achievement = achievement, isUnlocked = isUnlocked)
+            val progress = StatsBreakdown.achievementProgress(achievement.id, uiState.gameState)
+            AchievementItemCard(
+                achievement = achievement,
+                isUnlocked = isUnlocked,
+                progressText = progress?.displayValue(uiState.gameState.settings.numberFormat) ?: "Progress unavailable",
+                progressFraction = progress?.let {
+                    if (it.target <= BigDecimal.ZERO) 1f
+                    else it.current.divide(it.target, 4, RoundingMode.HALF_UP).min(BigDecimal.ONE).toFloat()
+                } ?: 0f
+            )
         }
     }
 }
@@ -164,13 +168,20 @@ private fun StatRow(label: String, value: String) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = label, fontSize = 12.sp, color = AppColors.TextMedium)
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = AppColors.TextMedium,
+            modifier = Modifier.weight(0.44f)
+        )
         Text(
             text = value,
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
-            color = AppColors.TextHigh
+            color = AppColors.TextHigh,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(0.56f)
         )
     }
 }
@@ -184,7 +195,12 @@ private fun FilterChipItem(
     Surface(
         modifier = Modifier
             .defaultMinSize(minHeight = 48.dp)
-            .clickable(onClick = onClick),
+            .clickable(role = Role.RadioButton, onClick = onClick)
+            .semantics {
+                role = Role.RadioButton
+                selected = isSelected
+                contentDescription = label
+            },
         shape = RoundedCornerShape(16.dp),
         color = if (isSelected) AppColors.PrimaryCopper else AppColors.SurfaceLow,
         border = androidx.compose.foundation.BorderStroke(
@@ -210,14 +226,16 @@ private fun FilterChipItem(
 @Composable
 private fun AchievementItemCard(
     achievement: AchievementDefinition,
-    isUnlocked: Boolean
+    isUnlocked: Boolean,
+    progressText: String,
+    progressFraction: Float
 ) {
     val borderColor = if (isUnlocked) AppColors.PositiveGreen else AppColors.BorderSubtle
 
     TycoonCard(
         borderColor = borderColor,
         modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "${achievement.title}, ${achievement.description}, ${if (isUnlocked) "Unlocked" else "Locked"}"
+            contentDescription = "${achievement.title}, ${achievement.description}, ${if (isUnlocked) "Unlocked" else "Locked"}, progress $progressText"
         }
     ) {
         Row(
@@ -237,6 +255,19 @@ private fun AchievementItemCard(
                     fontSize = 11.sp,
                     color = if (isUnlocked) AppColors.TextMedium else AppColors.TextDisabled,
                     modifier = Modifier.padding(top = 2.dp)
+                )
+                Text(
+                    text = "Progress: $progressText",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = if (isUnlocked) AppColors.PositiveGreen else AppColors.TextMedium,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { progressFraction.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    color = if (isUnlocked) AppColors.PositiveGreen else AppColors.PrimaryCopper,
+                    trackColor = AppColors.SurfaceLow
                 )
             }
 

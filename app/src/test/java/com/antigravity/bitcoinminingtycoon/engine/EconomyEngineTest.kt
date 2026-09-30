@@ -22,6 +22,26 @@ class EconomyEngineTest {
     }
 
     @Test
+    fun effectiveMinerContributionIsZeroWhenUnownedAndTracksItsRealModifiers() {
+        assertEquals(
+            BigDecimal.ZERO,
+            EconomyEngine.calculateEffectiveMinerHashrate(GameState(), "ancient_cpu")
+        )
+
+        val owned = GameState(miners = mapOf("ancient_cpu" to 50L))
+        val unmodified = EconomyEngine.calculateEffectiveMinerHashrate(owned, "ancient_cpu")
+        assertTrue(
+            "Tier output keeps fractional H/s before the fleet's final whole-H/s rounding",
+            unmodified.subtract(EconomyEngine.calculateEffectiveHashrate(owned)).abs() < BigDecimal.ONE
+        )
+
+        val upgraded = owned.copy(purchasedUpgrades = setOf("cpu_overclock_1"))
+        val modified = EconomyEngine.calculateEffectiveMinerHashrate(upgraded, "ancient_cpu")
+        assertTrue(modified > unmodified)
+        assertEquals(BigDecimal.ZERO, EconomyEngine.calculateEffectiveMinerHashrate(owned, "unknown_tier"))
+    }
+
+    @Test
     fun calculatePowerFactor_scalesDownUnderDeficit() {
         // Base power capacity for tier 1 is 0.5 kW
         // 25 ancient CPUs = 25 * 0.02 = 0.50 kW (Exactly at capacity)

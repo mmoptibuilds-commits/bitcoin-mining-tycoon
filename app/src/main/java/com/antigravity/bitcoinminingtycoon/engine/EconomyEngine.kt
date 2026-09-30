@@ -60,6 +60,21 @@ object EconomyEngine {
     fun calculateEffectiveHashrate(state: GameState): BigDecimal {
         val raw = calculateRawHashrate(state)
         if (raw <= BigDecimal.ZERO) return BigDecimal.ZERO
+        return GameNumber.multiply(raw, calculateCombinedHashrateMultiplier(state)).setScale(0, RoundingMode.HALF_UP)
+    }
+
+    /** Effective contribution used by hardware inspection; mining tick output stays calculated above. */
+    fun calculateEffectiveMinerHashrate(state: GameState, minerId: String): BigDecimal {
+        val definition = Miners.getById(minerId) ?: return BigDecimal.ZERO
+        val count = state.miners[minerId]?.takeIf { it > 0L } ?: return BigDecimal.ZERO
+        val baseContribution = definition.baseHashrate
+            .multiply(BigDecimal(count), GameNumber.MATH_CONTEXT)
+        val minerContribution = GameNumber.multiply(baseContribution, UpgradeEngine.calculateMinerMultiplier(state, minerId))
+        val rawContribution = GameNumber.multiply(minerContribution, UpgradeEngine.calculateGlobalHashrateMultiplier(state))
+        return GameNumber.multiply(rawContribution, calculateCombinedHashrateMultiplier(state))
+    }
+
+    private fun calculateCombinedHashrateMultiplier(state: GameState): Double {
 
         val powerFactor = calculatePowerFactor(state)
         val (_, thermalFactor) = calculateThermalState(state)
@@ -90,8 +105,7 @@ object EconomyEngine {
             eventMultiplier *= UpgradeEngine.calculatePositiveEventProductionMultiplier(state)
         }
 
-        val combinedMultiplier = powerFactor * thermalFactor * eventMultiplier * prestigeMultiplier
-        return GameNumber.multiply(raw, combinedMultiplier).setScale(0, RoundingMode.HALF_UP)
+        return powerFactor * thermalFactor * eventMultiplier * prestigeMultiplier
     }
 
     fun calculateMinedBtc(effectiveHashrate: BigDecimal, deltaSeconds: Double): BigDecimal {

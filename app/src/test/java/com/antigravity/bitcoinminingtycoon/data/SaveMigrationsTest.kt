@@ -90,6 +90,18 @@ class SaveMigrationsTest {
     }
 
     @Test
+    fun legacyAndPreCoverageSchemaTwoSavesAreMarkedAsPartialSourceBreakdowns() {
+        val legacy = SaveMigrations.migrate(fixture("mid.json")) as SaveMigrationResult.Ready
+        val olderSchemaTwo = SaveMigrations.migrate(
+            """{"schemaVersion":2,"stats":{"lifetimeBtcMined":"1","lifetimeUsdEarned":"2"}}"""
+        ) as SaveMigrationResult.Ready
+
+        assertFalse(legacy.save.stats.sourceBreakdownTrackedSinceV12)
+        assertFalse(olderSchemaTwo.save.stats.sourceBreakdownTrackedSinceV12)
+        assertTrue(GameSave().stats.sourceBreakdownTrackedSinceV12)
+    }
+
+    @Test
     fun migrate_preservesUnknownContentAndDoesNotUseItForKnownAssetTotals() {
         val result = SaveMigrations.migrate(fixture("unknown-content.json")) as SaveMigrationResult.Ready
 

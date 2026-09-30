@@ -24,9 +24,13 @@ import androidx.compose.ui.unit.sp
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.engine.BulkMode
 import com.antigravity.bitcoinminingtycoon.engine.FleetEngine
+import com.antigravity.bitcoinminingtycoon.util.GameNumber
+import com.antigravity.bitcoinminingtycoon.util.NumberFormatter
 import com.antigravity.bitcoinminingtycoon.ui.components.BulkPurchaseToggle
+import com.antigravity.bitcoinminingtycoon.ui.components.ButtonStyle
 import com.antigravity.bitcoinminingtycoon.ui.components.MetricTile
 import com.antigravity.bitcoinminingtycoon.ui.components.TycoonCard
+import com.antigravity.bitcoinminingtycoon.ui.components.TycoonButton
 import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
 import com.antigravity.bitcoinminingtycoon.viewmodel.GameUiState
 
@@ -39,8 +43,25 @@ fun HardwareScreen(
     bulkMode: BulkMode,
     onBulkModeSelected: (BulkMode) -> Unit,
     onBuyMiner: (String) -> Unit,
+    onOpenUpgrades: () -> Unit,
+    onOpenMine: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val infrastructureLimited = uiState.powerFactor < 0.999999 || uiState.thermalFactor < 0.999999
+    val firstUnaffordablePurchase = Miners.ALL.asSequence()
+        .filter { FleetEngine.isUnlocked(it, uiState.gameState) }
+        .map { miner ->
+            val cost = FleetEngine.calculatePurchase(
+                miner,
+                uiState.gameState.miners[miner.id] ?: 0L,
+                bulkMode,
+                uiState.gameState.usdBigDecimal
+            ).second
+            miner to cost
+        }
+        .firstOrNull { (_, cost) -> uiState.gameState.usdBigDecimal < cost }
+    val sellForHardware = uiState.gameState.btcBigDecimal.signum() > 0 &&
+        firstUnaffordablePurchase != null
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -73,6 +94,58 @@ fun HardwareScreen(
             }
         }
 
+        if (sellForHardware) {
+            val (miner, requiredCash) = firstUnaffordablePurchase
+            val deficit = requiredCash.subtract(uiState.gameState.usdBigDecimal, GameNumber.MATH_CONTEXT)
+            TycoonCard(borderColor = AppColors.BorderFocus) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "TURN BITCOIN INTO HARDWARE CASH",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.PrimaryCopper
+                    )
+                    Text(
+                        text = "${miner.name} in ${bulkMode.label} mode needs ${NumberFormatter.formatUsd(requiredCash, uiState.gameState.settings.numberFormat)}. You are short by ${NumberFormatter.formatUsd(deficit, uiState.gameState.settings.numberFormat)}; sell mined Bitcoin on Mine or choose a smaller bulk amount.",
+                        fontSize = 12.sp,
+                        color = AppColors.TextMedium
+                    )
+                    TycoonButton(
+                        text = "Open Mine to sell Bitcoin",
+                        onClick = onOpenMine,
+                        style = ButtonStyle.SECONDARY,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentDescriptionText = "Open Mine to sell Bitcoin for hardware cash"
+                    )
+                }
+            }
+        }
+
+        if (infrastructureLimited) {
+            TycoonCard(borderColor = AppColors.WarningAmber) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "INFRASTRUCTURE LIMITING OUTPUT",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AppColors.WarningAmber
+                    )
+                    Text(
+                        text = "Power ${String.format(java.util.Locale.US, "%.2f", uiState.powerDemandKw)} / ${String.format(java.util.Locale.US, "%.2f", uiState.powerCapacityKw)} kW · cooling ${String.format(java.util.Locale.US, "%.0f%%", uiState.thermalFactor * 100.0)}. Increase grid capacity or cooling to restore full mining speed.",
+                        fontSize = 12.sp,
+                        color = AppColors.TextMedium
+                    )
+                    TycoonButton(
+                        text = "Open infrastructure upgrades",
+                        onClick = onOpenUpgrades,
+                        style = ButtonStyle.SECONDARY,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentDescriptionText = "Open upgrades to improve power capacity or cooling"
+                    )
+                }
+            }
+        }
+
         // 2. Bulk Purchase Mode Selector
         BulkPurchaseToggle(
             selectedMode = bulkMode,
@@ -99,6 +172,7 @@ fun HardwareScreen(
                     availableUsd = uiState.gameState.usdBigDecimal,
                     isUnlocked = isUnlocked,
                     numberFormat = uiState.gameState.settings.numberFormat,
+                    gameState = uiState.gameState,
                     onBuyClick = { onBuyMiner(miner.id) }
                 )
             }

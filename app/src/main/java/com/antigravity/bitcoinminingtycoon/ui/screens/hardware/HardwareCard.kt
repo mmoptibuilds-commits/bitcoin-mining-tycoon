@@ -31,7 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.antigravity.bitcoinminingtycoon.content.MinerDefinition
 import com.antigravity.bitcoinminingtycoon.engine.BulkMode
+import com.antigravity.bitcoinminingtycoon.engine.EconomyEngine
 import com.antigravity.bitcoinminingtycoon.engine.FleetEngine
+import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.ui.components.ButtonStyle
 import com.antigravity.bitcoinminingtycoon.ui.components.TycoonButton
 import com.antigravity.bitcoinminingtycoon.ui.components.TycoonCard
@@ -53,6 +55,7 @@ fun HardwareCard(
     availableUsd: BigDecimal,
     isUnlocked: Boolean,
     numberFormat: NumberFormatPreference,
+    gameState: GameState,
     onBuyClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -116,7 +119,7 @@ fun HardwareCard(
 
             // 2. Metrics & Telemetry Row
             if (isUnlocked) {
-                val totalOutput = miner.baseHashrate.multiply(BigDecimal(ownedCount.coerceAtLeast(1L)), GameNumber.MATH_CONTEXT)
+                val totalOutput = EconomyEngine.calculateEffectiveMinerHashrate(gameState, miner.id)
                 val totalHashrateFormatted = NumberFormatter.formatHashrate(totalOutput)
                 val baseHashrateFormatted = NumberFormatter.formatHashrate(miner.baseHashrate)
 
@@ -125,7 +128,7 @@ fun HardwareCard(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
-                        Text(text = "UNIT HASHRATE", fontSize = 10.sp, color = AppColors.TextMedium)
+                        Text(text = "BASE / UNIT", fontSize = 10.sp, color = AppColors.TextMedium)
                         Text(
                             text = "$baseHashrateFormatted/s",
                             fontSize = 12.sp,
@@ -135,16 +138,16 @@ fun HardwareCard(
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = "POWER / HEAT", fontSize = 10.sp, color = AppColors.TextMedium)
+                        Text(text = "POWER · HEAT", fontSize = 10.sp, color = AppColors.TextMedium)
                         Text(
-                            text = "${miner.powerDrawKw} kW | +${miner.heatLoad}°C",
+                            text = "${miner.powerDrawKw} kW | +${miner.heatLoad}°C / unit",
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             color = AppColors.WarningAmber
                         )
                     }
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(text = "FLEET SHARE", fontSize = 10.sp, color = AppColors.TextMedium)
+                        Text(text = "TIER OUTPUT", fontSize = 10.sp, color = AppColors.TextMedium)
                         Text(
                             text = totalHashrateFormatted,
                             fontSize = 12.sp,
