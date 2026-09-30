@@ -15,7 +15,7 @@ object PrestigeNodes {
     val EFFICIENT_SILICON = PrestigeNodeDefinition(
         id = "efficient_silicon",
         title = "Efficient Silicon",
-        description = "+25% global effective hashrate across all mining operations.",
+        description = "+400% global effective hashrate across all mining operations.",
         costSp = 1L,
         tier = 1
     )

@@ -85,7 +85,7 @@ class SaveMigrationsTest {
                 PrestigeEngine.calculateTotalPointsFromLifetimeBtc(BigDecimal(save.stats.lifetimeBtcMined))),
             save.stats.prestigePointsBaselineV2
         )
-        assertEquals(1, save.balanceRulesVersion)
+        assertEquals(2, save.balanceRulesVersion)
         assertTrue(save.completedTeachingCueIds.isEmpty())
     }
 
@@ -96,6 +96,16 @@ class SaveMigrationsTest {
         assertEquals(5L, result.save.miners["ancient_cpu"])
         assertEquals(13L, result.save.miners["unknown_miner_v0"])
         assertTrue("unknown_upgrade_v0" in result.save.purchasedUpgrades)
+    }
+
+    @Test
+    fun migrationNormalizesOnlyRecognizedLegacyManualHashDefaults() {
+        val oldDefault = fixture("early.json").replace("\"manualHashStrength\":\"10\"", "\"manualHashStrength\":\"10.0\"")
+        val migratedDefault = SaveMigrations.migrate(oldDefault) as SaveMigrationResult.Ready
+        val migratedCustom = SaveMigrations.migrate(fixture("mid.json")) as SaveMigrationResult.Ready
+
+        assertEquals("50000", migratedDefault.save.manualHashStrength)
+        assertEquals("7654321.125", migratedCustom.save.manualHashStrength)
     }
 
     @Test

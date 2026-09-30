@@ -216,7 +216,9 @@ class GameViewModel(
     fun onToggleAutoSell() {
         viewModelScope.launch {
             val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
-                it.copy(autoSellEnabled = !it.autoSellEnabled)
+                if (com.antigravity.bitcoinminingtycoon.engine.UpgradeEngine.canEnableAutoSell(it)) {
+                    it.copy(autoSellEnabled = !it.autoSellEnabled)
+                } else it
             }
             playMutationFeedback(result, success = null, invalid = SoundEffect.INVALID)
         }

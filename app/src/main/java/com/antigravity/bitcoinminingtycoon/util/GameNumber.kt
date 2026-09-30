@@ -18,6 +18,7 @@ object GameNumber {
     val ZERO: BigDecimal = BigDecimal.ZERO
     val ONE: BigDecimal = BigDecimal.ONE
     val HUNDRED: BigDecimal = BigDecimal("100")
+    private val SATURATED_COST = BigDecimal("1E+100000")
 
     fun fromLong(value: Long): BigDecimal = BigDecimal(max(0L, value))
     fun fromDouble(value: Double): BigDecimal {
@@ -93,6 +94,7 @@ object GameNumber {
         // Single item fast-path
         if (count == 1L) {
             val multiplier = Math.pow(growthRate, owned.toDouble())
+            if (!multiplier.isFinite()) return SATURATED_COST
             return baseCost.multiply(BigDecimal(multiplier.toString(), MATH_CONTEXT), MATH_CONTEXT)
                 .setScale(2, RoundingMode.HALF_UP)
         }
@@ -101,11 +103,13 @@ object GameNumber {
         val r = growthRate
         val rOwned = Math.pow(r, owned.toDouble())
         val rCount = Math.pow(r, count.toDouble())
+        if (!rOwned.isFinite() || !rCount.isFinite()) return SATURATED_COST
 
         val currentItemCost = baseCost.multiply(BigDecimal(rOwned.toString(), MATH_CONTEXT), MATH_CONTEXT)
         val seriesFactor = (rCount - 1.0) / (r - 1.0)
 
         val total = currentItemCost.multiply(BigDecimal(seriesFactor.toString(), MATH_CONTEXT), MATH_CONTEXT)
+        if (!total.toDouble().isFinite()) return SATURATED_COST
         return total.setScale(2, RoundingMode.HALF_UP)
     }
 
@@ -122,7 +126,11 @@ object GameNumber {
         if (availableFunds <= ZERO || baseCost <= ZERO || growthRate <= 1.0) return 0L
 
         val firstItemCost = calculateBulkCost(baseCost, growthRate, owned, 1L)
-        if (availableFunds < firstItemCost) return 0L
+        if (firstItemCost >= SATURATED_COST || availableFunds < firstItemCost) return 0L
+        fun affordable(count: Long): Boolean {
+            val cost = calculateBulkCost(baseCost, growthRate, owned, count)
+            return cost < SATURATED_COST && cost <= availableFunds
+        }
 
         // Closed-form estimate: k = floor( ln(1 + funds * (r - 1) / firstItemCost) / ln(r) )
         val fundsDouble = availableFunds.toDouble()
@@ -141,14 +149,24 @@ object GameNumber {
 
         var k = max(0L, estimate)
 
-        // Bounded refinement to guarantee exactness (checks k, k+1, k-1)
-        while (calculateBulkCost(baseCost, growthRate, owned, k + 1L) <= availableFunds) {
-            k += 1L
-        }
-        while (k > 0L && calculateBulkCost(baseCost, growthRate, owned, k) > availableFunds) {
-            k -= 1L
+        // A few local checks retain the fast logarithmic path for ordinary balances.
+        repeat(8) {
+            when {
+                k < Long.MAX_VALUE && affordable(k + 1L) -> k++
+                k > 0L && !affordable(k) -> k--
+                else -> return k
+            }
         }
 
-        return max(0L, k)
+        // Extreme decimal balances can overflow Double during the estimate. Finish with a
+        // 63-step integer search rather than allowing an unbounded correction loop.
+        var low = 0L
+        var high = Long.MAX_VALUE
+        while (low < high) {
+            val middle = low + (high - low) / 2L + 1L
+            if (affordable(middle)) low = middle
+            else high = middle - 1L
+        }
+        return max(0L, low)
     }
 }

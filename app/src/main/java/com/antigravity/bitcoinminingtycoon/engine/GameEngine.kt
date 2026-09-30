@@ -1,6 +1,7 @@
 package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.model.PowerEnergySample
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
@@ -11,9 +12,9 @@ import kotlin.random.Random
 /** Deterministic, immutable gameplay transitions. */
 object GameEngine {
 
-    const val MAX_TICK_SECONDS = 43_200.0
-    const val POWER_SAMPLE_INTERVAL_SECONDS = 300L
-    const val POWER_HISTORY_CAPACITY = 288
+    const val MAX_TICK_SECONDS = BalanceConfig.MAX_OFFLINE_SECONDS
+    const val POWER_SAMPLE_INTERVAL_SECONDS = BalanceConfig.POWER_SAMPLE_INTERVAL_SECONDS
+    const val POWER_HISTORY_CAPACITY = BalanceConfig.POWER_HISTORY_CAPACITY
 
     fun tick(
         state: GameState,
@@ -132,7 +133,15 @@ object GameEngine {
         if (right > 0L && left > Long.MAX_VALUE - right) Long.MAX_VALUE else (left + right).coerceAtLeast(0L)
 
     fun performManualTap(state: GameState): GameState {
-        val tapOutput = EconomyEngine.calculateManualTapOutput(state)
+        var tapOutput = EconomyEngine.calculateManualTapOutput(state)
+        var nextRngSeed = state.rngSeed
+        UpgradeEngine.criticalTapEffect(state)?.let { effect ->
+            val rng = Random(state.rngSeed)
+            if (rng.nextDouble() < effect.chance) {
+                tapOutput = tapOutput.multiply(BigDecimal.valueOf(effect.payoutMultiplier), GameNumber.MATH_CONTEXT)
+            }
+            nextRngSeed = rng.nextLong()
+        }
         val newBtc = state.btcBigDecimal.add(tapOutput, GameNumber.MATH_CONTEXT)
         val lifetimeBtc = state.stats.lifetimeBtcBigDecimal.add(tapOutput, GameNumber.MATH_CONTEXT)
         val manualBtc = GameNumber.fromString(state.stats.manualBtc).add(tapOutput, GameNumber.MATH_CONTEXT)
@@ -142,7 +151,7 @@ object GameEngine {
             manualBtc = manualBtc.toPlainString(),
             totalManualTaps = saturatingAdd(state.stats.totalManualTaps, 1L)
         )
-        val stateAfterTap = state.copy(btc = newBtc.toPlainString(), stats = updatedStats)
+        val stateAfterTap = state.copy(btc = newBtc.toPlainString(), stats = updatedStats, rngSeed = nextRngSeed)
         return AchievementEngine.evaluate(stateAfterTap).first
     }
 }

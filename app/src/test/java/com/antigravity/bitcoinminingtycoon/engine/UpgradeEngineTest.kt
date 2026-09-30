@@ -2,6 +2,7 @@ package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.content.Upgrades
+import com.antigravity.bitcoinminingtycoon.content.UpgradeSpecialEffectType
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -33,29 +34,29 @@ class UpgradeEngineTest {
 
     @Test
     fun minerSpecificAndGlobalHashrate_applyCorrectly() {
-        val cpu = Miners.ALL[0] // Ancient CPU: 1 H/s
-        val gpu = Miners.ALL[2] // Gaming GPU: 50 H/s
+        val cpu = Miners.ALL[0] // Ancient CPU: 50,000 H/s
+        val gpu = Miners.ALL[2] // Gaming GPU: 300,000 H/s
 
         val baseState = GameState(
-            miners = mapOf(cpu.id to 10L, gpu.id to 2L), // 10*1 + 2*50 = 110 H/s
+            miners = mapOf(cpu.id to 10L, gpu.id to 2L), // 500,000 + 600,000 H/s
             powerGridTier = 3,
             coolingTier = 3
         )
 
         val baseHash = EconomyEngine.calculateEffectiveHashrate(baseState)
-        assertEquals(BigDecimal("110"), baseHash)
+        assertEquals(BigDecimal("1100000"), baseHash)
 
         // Apply GPU boost: gpu_vram_tuning (1.35x on GPU only)
-        // 10*1 + 2*50*1.35 = 10 + 135 = 145 H/s
+        // 500,000 + 2*300,000*1.35 = 1,310,000 H/s
         val stateGpuBoost = baseState.copy(purchasedUpgrades = setOf("gpu_vram_tuning"))
         val boostedHash = EconomyEngine.calculateEffectiveHashrate(stateGpuBoost)
-        assertEquals(BigDecimal("145"), boostedHash)
+        assertEquals(BigDecimal("1310000"), boostedHash)
 
         // Apply Global boost: mining_pool_syndicate (1.20x on total)
-        // 145 * 1.20 = 174 H/s
+        // 1,310,000 * 1.20 = 1,572,000 H/s
         val stateGlobalBoost = stateGpuBoost.copy(purchasedUpgrades = setOf("gpu_vram_tuning", "mining_pool_syndicate"))
         val finalHash = EconomyEngine.calculateEffectiveHashrate(stateGlobalBoost)
-        assertEquals(BigDecimal("174"), finalHash)
+        assertEquals(BigDecimal("1572000"), finalHash)
     }
 
     @Test
@@ -109,5 +110,31 @@ class UpgradeEngineTest {
         // Attempt duplicate purchase of Upgrade 1: must be no-op
         val duplicateAttempt = UpgradeEngine.buyUpgrade(stateWithU2, upgrade1.id)
         assertEquals(stateWithU2, duplicateAttempt)
+    }
+
+    @Test
+    fun namedAutomationEffectsHaveDistinctEngineHandlersAndStayBounded() {
+        val empty = GameState()
+        assertFalse(UpgradeEngine.canEnableAutoSell(empty))
+
+        val autoSell = empty.copy(purchasedUpgrades = setOf("auto_sell_controller"))
+        assertTrue(UpgradeEngine.hasSpecialEffect(autoSell, UpgradeSpecialEffectType.AUTO_SELL_UNLOCK))
+        assertTrue(UpgradeEngine.canEnableAutoSell(autoSell))
+
+        val fleet = empty.copy(purchasedUpgrades = setOf("fleet_scheduler"))
+        assertEquals(1.15, UpgradeEngine.calculateGlobalHashrateMultiplier(fleet), 0.0)
+
+        val efficient = empty.copy(purchasedUpgrades = setOf("energy_aware_dispatch"))
+        assertEquals(0.85, UpgradeEngine.calculatePowerModifier(efficient), 0.0)
+
+        val offline = empty.copy(purchasedUpgrades = setOf("offline_mining_buffer"))
+        assertEquals(1.25, UpgradeEngine.calculateOfflineProductionMultiplier(offline), 0.0)
+
+        val eventResponse = empty.copy(purchasedUpgrades = setOf("event_response_automation"))
+        assertEquals(1.25, UpgradeEngine.calculatePositiveEventProductionMultiplier(eventResponse), 0.0)
+        assertEquals(
+            UpgradeEngine.HANDLED_SPECIAL_EFFECT_TYPES,
+            UpgradeSpecialEffectType.values().toSet()
+        )
     }
 }

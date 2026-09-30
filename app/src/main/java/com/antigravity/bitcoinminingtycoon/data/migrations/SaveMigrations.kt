@@ -2,6 +2,7 @@ package com.antigravity.bitcoinminingtycoon.data.migrations
 
 import com.antigravity.bitcoinminingtycoon.data.GameSave
 import com.antigravity.bitcoinminingtycoon.data.SaveMigrationResult
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.engine.PrestigeEngine
 import com.antigravity.bitcoinminingtycoon.model.ActiveEventState
 import com.antigravity.bitcoinminingtycoon.model.GameState
@@ -91,7 +92,10 @@ object SaveMigrations {
 
         listOf("btc", "usd", "manualHashStrength", "marketPrice", "autoSellThresholdUsd").forEach { decimalField(root, it) }
         root["marketTrend"]?.let { if (enumOrNull<MarketTrend>(root, "marketTrend") == null) warnings += "Invalid marketTrend" }
-        listOf("marketTimerSeconds" to 43_200.0, "eventTimerSeconds" to 43_200.0).forEach { (key, max) ->
+        listOf(
+            "marketTimerSeconds" to BalanceConfig.MAX_OFFLINE_SECONDS,
+            "eventTimerSeconds" to BalanceConfig.MAX_OFFLINE_SECONDS
+        ).forEach { (key, max) ->
             val value = root[key] ?: return@forEach
             val number = (value as? JsonPrimitive)?.doubleOrNull
             if (number == null || !number.isFinite() || number !in 0.0..max) warnings += "Invalid $key"
@@ -131,7 +135,8 @@ object SaveMigrations {
                 val duration = (summary?.get("durationSeconds") as? JsonPrimitive)?.doubleOrNull
                 val creditedBtc = summary?.string("creditedBtc")?.let(::validDecimal)
                 val creditedAt = (summary?.get("creditedAtWallMillis") as? JsonPrimitive)?.longOrNull
-                if (summary == null || duration == null || !duration.isFinite() || duration !in 0.0..43_200.0 || creditedBtc == null || creditedAt == null || creditedAt < 0L) {
+                if (summary == null || duration == null || !duration.isFinite() ||
+                    duration !in 0.0..BalanceConfig.MAX_OFFLINE_SECONDS || creditedBtc == null || creditedAt == null || creditedAt < 0L) {
                     warnings += "Invalid pending offline summary"
                 }
             }
@@ -234,8 +239,9 @@ object SaveMigrations {
             schemaVersion = GameSave.CURRENT_SCHEMA_VERSION,
             btc = decimal(root, "btc", "0"),
             usd = decimal(root, "usd", "0"),
-            // The v1 serializer's persisted default was 10; M2 reconciles recognized defaults.
-            manualHashStrength = decimal(root, "manualHashStrength", if (wasSchemaOne) "10" else default.manualHashStrength),
+            // Reconcile only the exact defaults written by older balance rules. Keep every
+            // non-default value byte-for-byte so player-specific saves remain intact.
+            manualHashStrength = migratedManualHash(root, wasSchemaOne, default.manualHashStrength),
             miners = miners,
             purchasedUpgrades = readStringSet(root["purchasedUpgrades"]),
             powerGridTier = root.int("powerGridTier", 1).coerceIn(1, 10),
@@ -243,8 +249,8 @@ object SaveMigrations {
             marketPrice = decimal(root, "marketPrice", default.marketPrice),
             marketTrend = root.enum("marketTrend", MarketTrend.NEUTRAL),
             marketHistory = marketHistory.ifEmpty { listOf(decimal(root, "marketPrice", default.marketPrice)) },
-            marketTimerSeconds = root.finiteDouble("marketTimerSeconds", 0.0, 0.0, 43_200.0),
-            eventTimerSeconds = root.finiteDouble("eventTimerSeconds", 120.0, 0.0, 43_200.0),
+            marketTimerSeconds = root.finiteDouble("marketTimerSeconds", BalanceConfig.MARKET_INITIAL_TIMER_SECONDS, 0.0, BalanceConfig.MAX_OFFLINE_SECONDS),
+            eventTimerSeconds = root.finiteDouble("eventTimerSeconds", BalanceConfig.EVENT_INITIAL_TIMER_SECONDS, 0.0, BalanceConfig.MAX_OFFLINE_SECONDS),
             autoSellEnabled = root.bool("autoSellEnabled", false),
             autoSellThresholdUsd = decimal(root, "autoSellThresholdUsd", default.autoSellThresholdUsd),
             activeEvents = activeEvents,
@@ -258,13 +264,23 @@ object SaveMigrations {
             settings = decodeSettings(root["settings"]),
             lastSaveWallMillis = root.nonNegativeLong("lastSaveWallMillis", 0L),
             rngSeed = root.long("rngSeed", 1337L),
-            balanceRulesVersion = root.int("balanceRulesVersion", 1).coerceAtLeast(1),
+            balanceRulesVersion = BalanceConfig.BALANCE_RULES_VERSION,
             completedTeachingCueIds = if (wasSchemaOne) emptySet() else readStringSet(root["completedTeachingCueIds"]),
             highestDiscoveredFacilityStage = root.intOrNull("highestDiscoveredFacilityStage")
                 ?.takeIf { !wasSchemaOne && it in 0..9 } ?: derivedStage,
             batteryFriendlyAnimations = if (wasSchemaOne) false else root.bool("batteryFriendlyAnimations", false),
             pendingOfflineSummary = if (wasSchemaOne) null else decodePendingOfflineSummary(root["pendingOfflineSummary"])
         )
+    }
+
+    private fun migratedManualHash(root: JsonObject, wasSchemaOne: Boolean, currentDefault: String): String {
+        val value = decimal(root, "manualHashStrength", if (wasSchemaOne) "10" else currentDefault)
+        val priorRules = wasSchemaOne || root.int("balanceRulesVersion", 1) < BalanceConfig.BALANCE_RULES_VERSION
+        if (!priorRules) return value
+
+        val parsed = runCatching { BigDecimal(value) }.getOrNull() ?: return value
+        val knownOldDefaults = listOf(BigDecimal("10"), BigDecimal(currentDefault))
+        return if (knownOldDefaults.any { parsed.compareTo(it) == 0 }) currentDefault else value
     }
 
     private fun decodeStats(element: JsonElement?, wasSchemaOne: Boolean): StatsState {
@@ -318,7 +334,7 @@ object SaveMigrations {
 
     private fun decodePendingOfflineSummary(element: JsonElement?): PendingOfflineSummary? {
         val root = element as? JsonObject ?: return null
-        val duration = root.finiteDouble("durationSeconds", Double.NaN, 0.0, 43_200.0)
+        val duration = root.finiteDouble("durationSeconds", Double.NaN, 0.0, BalanceConfig.MAX_OFFLINE_SECONDS)
         val btc = root.string("creditedBtc")?.let(::validDecimal) ?: return null
         val creditedAt = root.nonNegativeLong("creditedAtWallMillis", -1L)
         if (!duration.isFinite() || duration <= 0.0 || creditedAt < 0L) return null

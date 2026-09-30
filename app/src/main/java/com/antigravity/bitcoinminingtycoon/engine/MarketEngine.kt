@@ -3,6 +3,7 @@ package com.antigravity.bitcoinminingtycoon.engine
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.model.MarketTrend
 import com.antigravity.bitcoinminingtycoon.model.StatsState
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -16,12 +17,12 @@ import kotlin.random.Random
  */
 object MarketEngine {
 
-    val MIN_PRICE: BigDecimal = BigDecimal("1000.00")
-    val MAX_PRICE: BigDecimal = BigDecimal("1000000.00")
-    val INITIAL_PRICE: BigDecimal = BigDecimal("50000.00")
+    val MIN_PRICE: BigDecimal = BigDecimal(BalanceConfig.MARKET_MIN_USD)
+    val MAX_PRICE: BigDecimal = BigDecimal(BalanceConfig.MARKET_MAX_USD)
+    val INITIAL_PRICE: BigDecimal = BalanceConfig.INITIAL_MARKET_PRICE_USD
 
     const val HISTORY_CAPACITY = 30
-    const val TICK_INTERVAL_SECONDS = 2.0
+    const val TICK_INTERVAL_SECONDS = BalanceConfig.MARKET_TICK_SECONDS
 
     /**
      * Executes market price progression and trend state transitions.
@@ -91,72 +92,29 @@ object MarketEngine {
      */
     fun transitionTrend(current: MarketTrend, rng: Random): MarketTrend {
         val roll = rng.nextDouble() // [0.0, 1.0)
-        return when (current) {
-            MarketTrend.NEUTRAL -> when {
-                roll < 0.70 -> MarketTrend.NEUTRAL
-                roll < 0.83 -> MarketTrend.BULL
-                roll < 0.96 -> MarketTrend.BEAR
-                roll < 0.98 -> MarketTrend.VOLATILE
-                roll < 0.99 -> MarketTrend.PUMP
-                else -> MarketTrend.CRASH
-            }
-            MarketTrend.BULL -> when {
-                roll < 0.72 -> MarketTrend.BULL
-                roll < 0.90 -> MarketTrend.NEUTRAL
-                roll < 0.95 -> MarketTrend.VOLATILE
-                roll < 0.98 -> MarketTrend.PUMP
-                else -> MarketTrend.BEAR
-            }
-            MarketTrend.BEAR -> when {
-                roll < 0.72 -> MarketTrend.BEAR
-                roll < 0.90 -> MarketTrend.NEUTRAL
-                roll < 0.95 -> MarketTrend.VOLATILE
-                roll < 0.98 -> MarketTrend.CRASH
-                else -> MarketTrend.BULL
-            }
-            MarketTrend.VOLATILE -> when {
-                roll < 0.55 -> MarketTrend.VOLATILE
-                roll < 0.75 -> MarketTrend.NEUTRAL
-                roll < 0.85 -> MarketTrend.BULL
-                roll < 0.95 -> MarketTrend.BEAR
-                roll < 0.975 -> MarketTrend.PUMP
-                else -> MarketTrend.CRASH
-            }
-            MarketTrend.CRASH -> when {
-                roll < 0.40 -> MarketTrend.CRASH
-                roll < 0.70 -> MarketTrend.BEAR
-                roll < 0.90 -> MarketTrend.VOLATILE
-                else -> MarketTrend.NEUTRAL
-            }
-            MarketTrend.PUMP -> when {
-                roll < 0.40 -> MarketTrend.PUMP
-                roll < 0.70 -> MarketTrend.BULL
-                roll < 0.90 -> MarketTrend.VOLATILE
-                else -> MarketTrend.NEUTRAL
-            }
+        val weights = BalanceConfig.MARKET_TRENDS.getValue(current).transitionWeights
+        var cumulative = 0.0
+        for ((next, weight) in weights) {
+            cumulative += weight
+            if (roll < cumulative) return next
         }
+        return weights.keys.last()
     }
 
     /**
      * Generates a price percentage delta bounded within the regime characteristics.
      */
     fun calculateTrendDelta(trend: MarketTrend, rng: Random): Double {
-        return when (trend) {
-            MarketTrend.NEUTRAL -> (rng.nextDouble() * 0.02) - 0.01 // -1.0% to +1.0%
-            MarketTrend.BULL -> (rng.nextDouble() * 0.025) + 0.005 // +0.5% to +3.0%
-            MarketTrend.BEAR -> -(rng.nextDouble() * 0.025) - 0.005 // -3.0% to -0.5%
-            MarketTrend.VOLATILE -> (rng.nextDouble() * 0.08) - 0.04 // -4.0% to +4.0%
-            MarketTrend.CRASH -> -(rng.nextDouble() * 0.06) - 0.04 // -10.0% to -4.0%
-            MarketTrend.PUMP -> (rng.nextDouble() * 0.06) + 0.04 // +4.0% to +10.0%
-        }
+        val tuning = BalanceConfig.MARKET_TRENDS.getValue(trend)
+        return tuning.deltaMin + ((tuning.deltaMax - tuning.deltaMin) * rng.nextDouble())
     }
 
     private fun applyEventModifiers(baseDelta: Double, state: GameState): Double {
         var delta = baseDelta
         for (event in state.activeEvents) {
             when (event.eventId) {
-                "bull_run" -> delta += 0.03
-                "market_crash" -> delta -= 0.05
+                "bull_run" -> delta += BalanceConfig.MARKET_BULL_EVENT_DELTA
+                "market_crash" -> delta += BalanceConfig.MARKET_CRASH_EVENT_DELTA
             }
         }
         return delta

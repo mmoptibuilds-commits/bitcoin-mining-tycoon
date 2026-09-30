@@ -32,16 +32,16 @@ class BulkPurchaseTest {
 
     @Test
     fun calculateMaxAffordable_exactBoundaryAndNeverOverdrafts() {
-        val miner = Miners.ALL[2] // Gaming GPU: base $250.00, growth 1.14
+        val miner = Miners.ALL[2] // Gaming GPU: base $95.00, growth 1.14
         val owned = 0L
 
-        // Price of 1 unit is $250.00
-        // Available: $249.99 -> 0 affordable
-        val countUnder = GameNumber.calculateMaxAffordable(BigDecimal("249.99"), miner.baseCostUsd, miner.growthRate, owned)
+        // Available: one cent below base cost -> 0 affordable
+        val underPrice = miner.baseCostUsd.subtract(BigDecimal("0.01"))
+        val countUnder = GameNumber.calculateMaxAffordable(underPrice, miner.baseCostUsd, miner.growthRate, owned)
         assertEquals(0L, countUnder)
 
-        // Available: $250.00 -> 1 affordable
-        val countExact = GameNumber.calculateMaxAffordable(BigDecimal("250.00"), miner.baseCostUsd, miner.growthRate, owned)
+        // Exact base cost -> 1 affordable
+        val countExact = GameNumber.calculateMaxAffordable(miner.baseCostUsd, miner.baseCostUsd, miner.growthRate, owned)
         assertEquals(1L, countExact)
 
         // Available: $10,000.00
@@ -96,7 +96,7 @@ class BulkPurchaseTest {
 
     @Test
     fun buyMiner_lockedTierCannotBePurchased() {
-        val lockedMiner = Miners.ALL[1] // Gaming CPU: requires 0.00000100 BTC lifetime
+        val lockedMiner = Miners.ALL[1] // Gaming CPU: requires 0.00001000 BTC lifetime
         val stateWithNoLifetimeBtc = GameState(
             usd = "10000.00",
             stats = StatsState(lifetimeBtcMined = "0.00000000")
@@ -108,11 +108,44 @@ class BulkPurchaseTest {
 
         // Now with sufficient lifetime BTC
         val stateUnlocked = stateWithNoLifetimeBtc.copy(
-            stats = StatsState(lifetimeBtcMined = "0.00000500")
+            stats = StatsState(lifetimeBtcMined = "0.00001000")
         )
         assertTrue(FleetEngine.isUnlocked(lockedMiner, stateUnlocked))
         val successfulBuy = FleetEngine.buyMiner(stateUnlocked, lockedMiner.id, BulkMode.X1)
         assertEquals(1L, successfulBuy.miners[lockedMiner.id])
-        assertEquals(BigDecimal("9950.00"), successfulBuy.usdBigDecimal) // 10,000 - 50
+        assertEquals(BigDecimal("9965.00"), successfulBuy.usdBigDecimal) // 10,000 - configured $35
+    }
+
+    @Test
+    fun extremeCountsNeverWrapOrThrowAndLifetimeCounterSaturates() {
+        val miner = Miners.ALL[0]
+        val extremeCost = GameNumber.calculateBulkCost(
+            miner.baseCostUsd,
+            miner.growthRate,
+            Long.MAX_VALUE - 1L,
+            10L
+        )
+        assertTrue("non-finite geometric costs use a finite sentinel", extremeCost > BigDecimal("1E+1000"))
+        val start = System.nanoTime()
+        val hugeFundsCount = GameNumber.calculateMaxAffordable(
+            BigDecimal("1E+100000"), miner.baseCostUsd, miner.growthRate, 0L
+        )
+        assertTrue("MAX remains useful with extreme decimal balances", hugeFundsCount > 0L)
+        assertTrue("MAX must stay inside the supported geometric-cost range", hugeFundsCount < Long.MAX_VALUE)
+        assertTrue("extreme MAX search must stay bounded", System.nanoTime() - start < 1_000_000_000L)
+
+        val nearCapacity = GameState(
+            usd = "1E+100000",
+            miners = mapOf(miner.id to (Long.MAX_VALUE - 1L))
+        )
+        assertEquals(nearCapacity, FleetEngine.buyMiner(nearCapacity, miner.id, BulkMode.X10))
+
+        val saturatedStats = GameState(
+            usd = "10",
+            stats = StatsState(totalMinersPurchased = Long.MAX_VALUE)
+        )
+        val bought = FleetEngine.buyMiner(saturatedStats, miner.id, BulkMode.X1)
+        assertEquals(1L, bought.miners[miner.id])
+        assertEquals(Long.MAX_VALUE, bought.stats.totalMinersPurchased)
     }
 }

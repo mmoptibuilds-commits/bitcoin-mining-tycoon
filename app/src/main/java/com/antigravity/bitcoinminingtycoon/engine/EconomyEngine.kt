@@ -1,7 +1,9 @@
 package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.content.Events
+import com.antigravity.bitcoinminingtycoon.content.EventType
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
@@ -17,7 +19,7 @@ import kotlin.math.min
 object EconomyEngine {
 
     // 1 Hash produces 10^-10 BTC (0.0000000001 BTC)
-    val BTC_PER_HASH_COEFFICIENT: BigDecimal = BigDecimal("0.0000000001")
+    val BTC_PER_HASH_COEFFICIENT: BigDecimal = BigDecimal(BalanceConfig.BTC_PER_HASH)
 
     fun calculateRawHashrate(state: GameState): BigDecimal {
         var total = BigDecimal.ZERO
@@ -68,13 +70,24 @@ object EconomyEngine {
         }
 
         // Prestige multiplier: 1% per permanent Satoshi Point (5% if satoshi_vision unlocked)
-        val baseSpMultiplier = if (state.purchasedPrestigeNodes.contains("satoshi_vision")) 0.05 else 0.01
+        val baseSpMultiplier = if (state.purchasedPrestigeNodes.contains("satoshi_vision")) {
+            BalanceConfig.PRESTIGE_POINT_HASHRATE_BONUS_WITH_VISION
+        } else BalanceConfig.PRESTIGE_POINT_HASHRATE_BONUS
         var prestigeMultiplier = 1.0 + (state.satoshiPoints * baseSpMultiplier)
         if (state.purchasedPrestigeNodes.contains("efficient_silicon")) {
-            prestigeMultiplier *= 1.25
+            prestigeMultiplier *= BalanceConfig.EFFICIENT_SILICON_HASHRATE_MULTIPLIER
         }
         if (state.purchasedPrestigeNodes.contains("quantum_legacy")) {
-            prestigeMultiplier *= 3.0
+            prestigeMultiplier *= BalanceConfig.QUANTUM_LEGACY_HASHRATE_MULTIPLIER
+        }
+
+        val hasPositiveProductionEvent = state.activeEvents.any { active ->
+            val definition = Events.getById(active.eventId)
+            definition?.type == EventType.AMBIENT_POSITIVE &&
+                (active.multiplier > 1.0 || active.powerModifier < 1.0 || active.heatModifier < 1.0)
+        }
+        if (hasPositiveProductionEvent) {
+            eventMultiplier *= UpgradeEngine.calculatePositiveEventProductionMultiplier(state)
         }
 
         val combinedMultiplier = powerFactor * thermalFactor * eventMultiplier * prestigeMultiplier

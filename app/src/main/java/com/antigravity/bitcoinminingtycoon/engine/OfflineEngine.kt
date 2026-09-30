@@ -1,6 +1,7 @@
 package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.model.GameState
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.model.PendingOfflineSummary
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import java.math.BigDecimal
@@ -15,7 +16,7 @@ data class OfflineReport(
 
 object OfflineEngine {
 
-    const val MAX_OFFLINE_SECONDS = 12.0 * 3600.0 // 12 hours maximum clamp (F15)
+    const val MAX_OFFLINE_SECONDS = BalanceConfig.MAX_OFFLINE_SECONDS // F15
     const val MIN_OFFLINE_REPORT_SECONDS = 60.0 // Summary-only threshold
 
     /**
@@ -39,9 +40,8 @@ object OfflineEngine {
 
         val elapsedMillis = (currentWallMillis - lastSavedWallMillis).coerceAtMost((MAX_OFFLINE_SECONDS * 1000.0).toLong())
         val clampedDeltaSeconds = elapsedMillis / 1000.0
-        val hashrateAtDeparture = EconomyEngine.calculateEffectiveHashrate(
-            state.copy(activeEvents = state.activeEvents.filter { it.expiresAtWallMillis > lastSavedWallMillis })
-        )
+        val departureState = state.copy(activeEvents = state.activeEvents.filter { it.expiresAtWallMillis > lastSavedWallMillis })
+        val hashrateAtDeparture = offlineHashrate(departureState)
         if (hashrateAtDeparture <= BigDecimal.ZERO || clampedDeltaSeconds <= 0.0) {
             return OfflineReport(
                 durationSeconds = clampedDeltaSeconds,
@@ -64,7 +64,7 @@ object OfflineEngine {
             if (segmentMillis > 0L) {
                 val active = state.activeEvents.filter { it.expiresAtWallMillis > cursor }
                 val segmentState = state.copy(activeEvents = active)
-                val hashrate = EconomyEngine.calculateEffectiveHashrate(segmentState)
+                val hashrate = offlineHashrate(segmentState)
                 minedBtc = minedBtc.add(
                     EconomyEngine.calculateMinedBtc(hashrate, segmentMillis / 1000.0),
                     GameNumber.MATH_CONTEXT
@@ -81,6 +81,12 @@ object OfflineEngine {
             creditedThroughWallMillis = currentWallMillis
         )
     }
+
+    private fun offlineHashrate(state: GameState) = EconomyEngine.calculateEffectiveHashrate(state)
+        .multiply(
+            java.math.BigDecimal.valueOf(UpgradeEngine.calculateOfflineProductionMultiplier(state)),
+            GameNumber.MATH_CONTEXT
+        )
 
     /**
      * Applies offline earnings idempotently to GameState and updates lifetime stats.

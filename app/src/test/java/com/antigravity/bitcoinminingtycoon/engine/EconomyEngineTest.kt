@@ -13,29 +13,29 @@ class EconomyEngineTest {
     fun calculateRawHashrate_sumsOwnedMinersCorrectly() {
         val state = GameState(
             miners = mapOf(
-                "ancient_cpu" to 10L, // 10 * 1 = 10 H/s
-                "gaming_cpu" to 5L    // 5 * 8 = 40 H/s
+                "ancient_cpu" to 10L, // 10 * 50,000 = 500,000 H/s
+                "gaming_cpu" to 5L    // 5 * 50,000 = 250,000 H/s
             )
         )
         val raw = EconomyEngine.calculateRawHashrate(state)
-        assertEquals(BigDecimal("50"), raw)
+        assertEquals(BigDecimal("750000"), raw)
     }
 
     @Test
     fun calculatePowerFactor_scalesDownUnderDeficit() {
         // Base power capacity for tier 1 is 0.5 kW
-        // 10 ancient CPUs = 10 * 0.05 = 0.50 kW (Exactly at capacity)
+        // 25 ancient CPUs = 25 * 0.02 = 0.50 kW (Exactly at capacity)
         val stateOptimal = GameState(
             powerGridTier = 1,
-            miners = mapOf("ancient_cpu" to 10L)
+            miners = mapOf("ancient_cpu" to 25L)
         )
         val factorOptimal = EconomyEngine.calculatePowerFactor(stateOptimal)
         assertEquals(1.0, factorOptimal, 0.001)
 
-        // 20 ancient CPUs = 20 * 0.05 = 1.0 kW (2x capacity demand -> 0.5 factor)
+        // 50 ancient CPUs = 50 * 0.02 = 1.0 kW (2x capacity demand -> 0.5 factor)
         val stateDeficit = GameState(
             powerGridTier = 1,
-            miners = mapOf("ancient_cpu" to 20L)
+            miners = mapOf("ancient_cpu" to 50L)
         )
         val factorDeficit = EconomyEngine.calculatePowerFactor(stateDeficit)
         assertEquals(0.5, factorDeficit, 0.001)
@@ -69,7 +69,7 @@ class EconomyEngineTest {
         val state = GameState(
             powerGridTier = 2, // 10 kW capacity (2 Gaming GPUs demand 0.60 kW)
             coolingTier = 2,   // 5.0 dissipation (2 Gaming GPUs demand 1.6 heat)
-            miners = mapOf("gaming_gpu" to 2L), // 2 * 50 = 100 H/s
+            miners = mapOf("gaming_gpu" to 2L), // 2 * 300,000 = 600,000 H/s
             satoshiPoints = 50L, // +50% prestige bonus (1.5x)
             activeEvents = listOf(
                 ActiveEventState("lucky_block", 9999999999999L, multiplier = 2.0)
@@ -77,16 +77,37 @@ class EconomyEngineTest {
         )
 
         val effective = EconomyEngine.calculateEffectiveHashrate(state)
-        // 100 H/s * 1.0 power * 1.0 thermal * 2.0 event * 1.5 prestige = 300 H/s
-        assertEquals(0, BigDecimal("300").compareTo(effective))
+        // 600,000 H/s * 1.0 power * 1.0 thermal * 2.0 event * 1.5 prestige.
+        assertEquals(0, BigDecimal("1800000").compareTo(effective))
+    }
+
+    @Test
+    fun eventResponseUpgradeBoostsKnownPositiveProductionEventsButNotMarketOnlyEvents() {
+        val without = GameState(miners = mapOf("ancient_cpu" to 1L))
+        val controller = without.copy(purchasedUpgrades = setOf("event_response_automation"))
+        val asicBreakthrough = controller.copy(
+            activeEvents = listOf(ActiveEventState("asic_breakthrough", Long.MAX_VALUE, multiplier = 1.35))
+        )
+        val bullRun = controller.copy(
+            activeEvents = listOf(ActiveEventState("bull_run", Long.MAX_VALUE, multiplier = 1.0))
+        )
+        val withoutController = asicBreakthrough.copy(purchasedUpgrades = emptySet())
+
+        val eventRate = EconomyEngine.calculateEffectiveHashrate(asicBreakthrough)
+        val plainEventRate = EconomyEngine.calculateEffectiveHashrate(withoutController)
+        val marketOnlyRate = EconomyEngine.calculateEffectiveHashrate(bullRun)
+        val plainRate = EconomyEngine.calculateEffectiveHashrate(without)
+
+        assertEquals(0, plainEventRate.multiply(BigDecimal("1.25")).compareTo(eventRate))
+        assertEquals(0, plainRate.compareTo(marketOnlyRate))
     }
 
     @Test
     fun calculateMinedBtc_accurateOverDeltaSeconds() {
         val hashrate = BigDecimal("10000000000") // 10 GH/s
         val delta = 1.0 // 1 second
-        // 10^10 hashes * 10^-10 BTC/hash = 1.00000000 BTC
+        // 10^10 hashes * 5e-11 BTC/hash = 0.5 BTC
         val btc = EconomyEngine.calculateMinedBtc(hashrate, delta)
-        assertEquals(0, BigDecimal.ONE.compareTo(btc))
+        assertEquals(0, BigDecimal("0.5").compareTo(btc))
     }
 }

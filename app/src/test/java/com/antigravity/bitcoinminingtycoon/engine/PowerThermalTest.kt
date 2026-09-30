@@ -13,23 +13,24 @@ class PowerThermalTest {
 
     @Test
     fun powerDemandAndFactor_scalesCorrectly() {
-        val cpu = Miners.ALL[0] // 0.05 kW
+        val cpu = Miners.ALL[0] // tuned legacy CPU tier
         val gpu = Miners.ALL[2] // 0.30 kW
 
         val state = GameState(
-            miners = mapOf(cpu.id to 10L, gpu.id to 5L), // 10*0.05 + 5*0.30 = 0.50 + 1.50 = 2.00 kW
+            miners = mapOf(cpu.id to 10L, gpu.id to 5L),
             powerGridTier = 1 // House Outlet: 0.5 kW capacity
         )
 
         val demand = PowerEngine.calculateDemandKw(state)
-        assertEquals(2.00, demand, 0.001)
+        val expectedDemand = cpu.powerDrawKw * 10L + gpu.powerDrawKw * 5L
+        assertEquals(expectedDemand, demand, 0.001)
 
         val capacity = PowerEngine.calculateCapacityKw(state)
         assertEquals(0.5, capacity, 0.001)
 
-        // Factor = 0.5 / 2.0 = 0.25
+        // The house outlet throttles output according to the configured tier capacity.
         val factor = PowerEngine.calculatePowerFactor(state)
-        assertEquals(0.25, factor, 0.001)
+        assertEquals(0.5 / expectedDemand, factor, 0.001)
 
         // Upgrade power grid to Tier 2 (Commercial Grid: 10.0 kW)
         val stateTier2 = state.copy(powerGridTier = 2)
@@ -43,13 +44,13 @@ class PowerThermalTest {
             powerGridTier = 1,
             usd = "500.00"
         )
-        val nextStage = Infrastructure.getPowerStage(2) // $200.00
+        val nextStage = Infrastructure.getPowerStage(2) // centralized BalanceConfig cost
 
         assertTrue(PowerEngine.canUpgradePowerGrid(initial))
         val upgraded = PowerEngine.upgradePowerGrid(initial)
 
         assertEquals(2, upgraded.powerGridTier)
-        assertEquals(BigDecimal("300.00"), upgraded.usdBigDecimal) // 500 - 200
+        assertEquals(BigDecimal("500.00").subtract(nextStage.costUsd), upgraded.usdBigDecimal)
 
         // Attempt upgrade when funds insufficient
         val poorState = upgraded.copy(usd = "50.00")
@@ -89,13 +90,13 @@ class PowerThermalTest {
             coolingTier = 1,
             usd = "500.00"
         )
-        val nextStage = Infrastructure.getCoolingStage(2) // Commercial AC: $150.00
+        val nextStage = Infrastructure.getCoolingStage(2) // centralized BalanceConfig cost
 
         assertTrue(ThermalEngine.canUpgradeCooling(initial))
         val upgraded = ThermalEngine.upgradeCooling(initial)
 
         assertEquals(2, upgraded.coolingTier)
-        assertEquals(BigDecimal("350.00"), upgraded.usdBigDecimal) // 500 - 150
+        assertEquals(BigDecimal("380.00"), upgraded.usdBigDecimal) // 500 - configured stage cost
     }
 
     @Test

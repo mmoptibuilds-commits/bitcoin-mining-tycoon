@@ -1,5 +1,6 @@
 package com.antigravity.bitcoinminingtycoon.model
 
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import com.antigravity.bitcoinminingtycoon.util.NumberFormatPreference
 import kotlinx.serialization.Serializable
@@ -49,8 +50,8 @@ data class StatsState(
     val totalMinersPurchased: Long = 0L,
     val totalUpgradesPurchased: Long = 0L,
     val totalBtcSold: String = "0",
-    val highestPriceObserved: String = "50000",
-    val lowestPriceObserved: String = "50000",
+    val highestPriceObserved: String = BalanceConfig.MARKET_INITIAL_STATS_USD,
+    val lowestPriceObserved: String = BalanceConfig.MARKET_INITIAL_STATS_USD,
     val totalPrestiges: Long = 0L,
     val lifetimeSatoshiPointsEarned: Long = 0L,
     val totalPlaytimeSeconds: Long = 0L,
@@ -93,18 +94,18 @@ data class GameState(
     val schemaVersion: Int = 2,
     val btc: String = "0",
     val usd: String = "0",
-    val manualHashStrength: String = "50000",
+    val manualHashStrength: String = BalanceConfig.INITIAL_MANUAL_HASHRATE,
     val miners: Map<String, Long> = emptyMap(),
     val purchasedUpgrades: Set<String> = emptySet(),
     val powerGridTier: Int = 1,
     val coolingTier: Int = 1,
-    val marketPrice: String = "50000",
+    val marketPrice: String = BalanceConfig.MARKET_INITIAL_USD,
     val marketTrend: MarketTrend = MarketTrend.NEUTRAL,
-    val marketHistory: List<String> = listOf("50000"),
-    val marketTimerSeconds: Double = 0.0,
-    val eventTimerSeconds: Double = 120.0,
+    val marketHistory: List<String> = listOf(BalanceConfig.MARKET_HISTORY_INITIAL_USD),
+    val marketTimerSeconds: Double = BalanceConfig.MARKET_INITIAL_TIMER_SECONDS,
+    val eventTimerSeconds: Double = BalanceConfig.EVENT_INITIAL_TIMER_SECONDS,
     val autoSellEnabled: Boolean = false,
-    val autoSellThresholdUsd: String = "60000",
+    val autoSellThresholdUsd: String = BalanceConfig.AUTO_SELL_INITIAL_THRESHOLD_USD,
     val activeEvents: List<ActiveEventState> = emptyList(),
     val achievements: Set<String> = emptySet(),
     val satoshiPoints: Long = 0L,
@@ -116,7 +117,7 @@ data class GameState(
     val settings: SettingsState = SettingsState(),
     val lastSaveWallMillis: Long = 0L,
     val rngSeed: Long = 1337L,
-    val balanceRulesVersion: Int = 1,
+    val balanceRulesVersion: Int = BalanceConfig.BALANCE_RULES_VERSION,
     val completedTeachingCueIds: Set<String> = emptySet(),
     val highestDiscoveredFacilityStage: Int = 0,
     val batteryFriendlyAnimations: Boolean = false,

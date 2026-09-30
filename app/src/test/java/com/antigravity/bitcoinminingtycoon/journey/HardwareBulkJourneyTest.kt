@@ -23,9 +23,9 @@ class HardwareBulkJourneyTest {
 
     @Test
     fun executeHardwareBulkJourney_endToEnd() {
-        val cpuMiner = Miners.ALL[0] // Ancient CPU: $10 base, 1 H/s, 0.05 kW, 0.1 °C
-        val gamingCpu = Miners.ALL[1] // Gaming CPU: $50 base, 8 H/s, 0.15 kW, 0.3 °C (unlock 0.00000100 BTC)
-        val gpuMiner = Miners.ALL[2] // Gaming GPU: $250 base, 50 H/s, 0.30 kW, 0.8 °C (unlock 0.00000500 BTC)
+        val cpuMiner = Miners.ALL[0] // Ancient CPU: $10 base, 50,000 H/s, 0.05 kW, 0.1 °C
+        val gamingCpu = Miners.ALL[1] // Gaming CPU: $35 base, 50,000 H/s, 0.15 kW, 0.3 °C
+        val gpuMiner = Miners.ALL[2] // Gaming GPU: $95 base, 300,000 H/s, 0.30 kW, 0.8 °C
         val dysonSwarm = Miners.ALL[19] // Dyson Hash Swarm: locked (1,000,000 BTC)
 
         // 1. Funded test state
@@ -45,22 +45,22 @@ class HardwareBulkJourneyTest {
         assertEquals(1L, state.miners[cpuMiner.id])
         assertEquals(BigDecimal("49990.00"), state.usdBigDecimal)
         val hashAfter1 = EconomyEngine.calculateEffectiveHashrate(state)
-        assertEquals(BigDecimal("1"), hashAfter1)
+        assertEquals(BigDecimal("50000"), hashAfter1)
 
         // 3. Buy x10 Ancient CPU
         state = FleetEngine.buyMiner(state, cpuMiner.id, BulkMode.X10)
         assertEquals(11L, state.miners[cpuMiner.id])
         assertTrue("USD should have decreased", state.usdBigDecimal < BigDecimal("49990.00"))
         val hashAfter11 = EconomyEngine.calculateEffectiveHashrate(state)
-        assertEquals(BigDecimal("11"), hashAfter11)
+        assertEquals(BigDecimal("550000"), hashAfter11)
 
         // 4. Buy x25 Gaming CPU
         assertTrue(FleetEngine.isUnlocked(gamingCpu, state))
         state = FleetEngine.buyMiner(state, gamingCpu.id, BulkMode.X25)
         assertEquals(25L, state.miners[gamingCpu.id])
-        // Hashrate = 11*1 + 25*8 = 11 + 200 = 211
+        // Hashrate = 11*50,000 + 25*50,000 = 1,800,000
         val hashAfterGamingCpu = EconomyEngine.calculateEffectiveHashrate(state)
-        assertEquals(BigDecimal("211"), hashAfterGamingCpu)
+        assertEquals(BigDecimal("1800000"), hashAfterGamingCpu)
 
         // 5. Buy MAX Gaming GPU
         val usdBeforeGpuMax = state.usdBigDecimal

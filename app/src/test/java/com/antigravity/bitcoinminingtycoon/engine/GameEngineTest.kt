@@ -3,11 +3,14 @@ package com.antigravity.bitcoinminingtycoon.engine
 import com.antigravity.bitcoinminingtycoon.model.ActiveEventState
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.data.GameSave
+import com.antigravity.bitcoinminingtycoon.content.UpgradeSpecialEffect
+import com.antigravity.bitcoinminingtycoon.content.UpgradeSpecialEffectType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
+import kotlin.random.Random
 
 class GameEngineTest {
 
@@ -62,6 +65,45 @@ class GameEngineTest {
         assertTrue(afterTap.btcBigDecimal > BigDecimal.ZERO)
         assertEquals(1L, afterTap.stats.totalManualTaps)
         assertEquals(afterTap.btcBigDecimal, afterTap.stats.lifetimeBtcBigDecimal)
+    }
+
+    @Test
+    fun criticalTapUsesSavedDeterministicRngOnlyWhenUpgradeIsOwned() {
+        val effect = UpgradeEngine.criticalTapEffect(
+            GameState(purchasedUpgrades = setOf("quantum_fingerprints"))
+        )
+        assertTrue("Quantum Fingerprints must carry the approved rare critical tap effect", effect != null)
+        assertEquals(UpgradeSpecialEffectType.CRITICAL_TAP, effect?.type)
+        val critical = effect as UpgradeSpecialEffect.CriticalTap
+        assertEquals(0.02, critical.chance, 0.0)
+        assertEquals(2.0, critical.payoutMultiplier, 0.0)
+
+        val criticalSeed = (0L..100_000L).first { Random(it).nextDouble() < critical.chance }
+        val normalSeed = (0L..100_000L).first { Random(it).nextDouble() >= critical.chance }
+        val criticalRandom = Random(criticalSeed)
+        assertTrue(criticalRandom.nextDouble() < critical.chance)
+        val expectedCriticalSeed = criticalRandom.nextLong()
+        val normalRandom = Random(normalSeed)
+        assertTrue(normalRandom.nextDouble() >= critical.chance)
+        val expectedNormalSeed = normalRandom.nextLong()
+
+        val base = GameState(manualHashStrength = "50000")
+        val criticalState = base.copy(
+            purchasedUpgrades = setOf("quantum_fingerprints"),
+            rngSeed = criticalSeed
+        )
+        val normalState = criticalState.copy(rngSeed = normalSeed)
+        val criticalTap = GameEngine.performManualTap(criticalState)
+        val normalTap = GameEngine.performManualTap(normalState)
+        val expectedBaseTap = EconomyEngine.calculateManualTapOutput(criticalState)
+
+        assertEquals(0, expectedBaseTap.multiply(BigDecimal("2")).compareTo(criticalTap.btcBigDecimal))
+        assertEquals(0, expectedBaseTap.compareTo(normalTap.btcBigDecimal))
+        assertEquals(expectedCriticalSeed, criticalTap.rngSeed)
+        assertEquals(expectedNormalSeed, normalTap.rngSeed)
+
+        val noEffectTap = GameEngine.performManualTap(base.copy(rngSeed = criticalSeed))
+        assertEquals(criticalSeed, noEffectTap.rngSeed)
     }
 
     @Test
