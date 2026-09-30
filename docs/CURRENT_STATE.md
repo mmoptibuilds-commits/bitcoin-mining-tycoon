@@ -10,7 +10,7 @@ Updated 2026-09-30. Active branch v1.2. Baseline v1.0 commit `33787bc4fa61ea4f78
 | M0 workstation/baseline | baseline JVM/lint/debug checks and serializer fixtures recorded | partial; release baseline hit Maven Central HTTP 429, and API31/API36 emulator evidence is blocked by missing Studio, images and virtualization |
 | M1 save compatibility/correctness | partial; schema-2, migration/recovery and deterministic runtime contracts implemented on v1.2 | JVM/build/lint pass; Android instrumentation is compiled but cannot run because the workspace has no device and Maven Central returned HTTP 429 for UTP dependencies |
 | M2 economy/content | software implemented on v1.2 | JVM content/economy/policy suite, lint, debug packaging and instrumentation-source compilation pass; device screenshots and connected flows remain blocked by the current emulator/UTP environment |
-| M3 home/teaching/navigation | pending | existing v1 UI remains |
+| M3 home/teaching/navigation | implemented on v1.2; acceptance partial | JVM suite, lint, debug package and Compose-test compilation pass; connected UI, screenshots, TalkBack and font-scale evidence remain blocked by unavailable Studio/device/UTP dependencies |
 | M4 facility scene/feedback | pending | new scenes/haptics not implemented |
 | M5 upgrades/secondary screens/stats | pending | expanded content/stats not implemented |
 | M6 Android identity | pending | template launcher artwork remains |
@@ -85,9 +85,25 @@ M2 is **software implemented but not fully verified**. All numeric tuning and co
 
 The policy simulation is model evidence, not usability evidence. It uses the current production engine transitions but cannot prove that novice teaching, prices, power remedies or pacing are understandable on device. M2 implementation commit `8ba6df585caeee42d8ed815b67dcedd49fdc0df6` was pushed normally to `v1.2`; this ledger update records the measured evidence in a separate documentation commit.
 
+## M3 execution evidence — 2026-09-30
+
+M3 is **implemented in source but only partially verified**. The Mine destination is now the facility home, short persisted cues explain the first sale-and-machine loop, and the app uses the existing Navigation 3 dependency for Hardware, Upgrades and utility destinations. UI assertions compile as instrumentation; they have not run on a device, so M3 is not marked complete.
+
+| Check | Performed evidence |
+|---|---|
+| Facility home and routes | Replaced the dashboard root with a Mine-first facility page and Mine/Hardware/Upgrades tabs. Stats and Settings are utility routes; the Satoshi Tree remains reachable from Upgrades. Navigation 3 back stack entries and per-tab saveable state retain route/tab/list state. Achievement, prestige, daily reward and offline-return surfaces remain connected. |
+| First-session teaching | Added stable `TeachingCueIds` and deterministic `DiscoveryPresentation` for Mine Bitcoin, sell Bitcoin, first machine and passive production. Manual mine, qualifying sale and first-miner purchase record their cue IDs through the serialized repository. Old saves with progress in balances, assets, upgrades, prestige, achievements, rewards or statistics skip new-player cues; `onboardingCompleted` is preserved. No onboarding grant or slide deck was added. |
+| Mine and market interaction | Facility home presents Bitcoin, Cash, Mine and Mining speed first, with one next goal and concise offline-simulation copy. Market details are collapsed by default. `MarketEngine.previewProceeds` now shares effective-price and rounding logic with the actual sale; a focused engine test compares preview with transaction. Environmental deficits expose direct Power/Cooling remedies. |
+| UI/accessibility assertions | Added `MineScreenTest`, `FirstSessionLoopTest`, `FacilityNavigationTest` and an in-memory DataStore substitute. Coverage includes Mine→sell→Cash→Hardware→first machine→passive cue, returning-player cue suppression/settings retention, root routes, utility navigation, accessible action labels and 48dp navigation/header targets. These are source assertions, not observed runtime results. |
+| JVM verification | Fresh `bash ./gradlew --no-daemon --console=plain --rerun-tasks testDebugUnitTest compileDebugAndroidTestKotlin lintDebug assembleDebug` passed: 28 JVM suites, 145 tests, 0 failures/errors/skips; Android Compose-test Kotlin compilation passed; lint and debug packaging passed. Full output: ignored `artifacts/m3/m3-final-verification.log`. Focused discovery/market/ViewModel output: ignored `artifacts/m3/m3-focused-final.log`. |
+| Debug artifact | `app/build/outputs/apk/debug/app-debug.apk`, SHA-256 `aa0c81e05943578bf7cc7d6bb2659db5525f5138fd543475ab1130b0822bba3c`. This is a local debug build, not a signed release or in-place upgrade. |
+| Device acceptance | `adb devices -l` reports no device; Android Studio/Device Manager and usable API31/API36 emulator images remain unavailable, and earlier connected tests could not resolve uncached UTP dependencies from Maven Central (HTTP 429). Compose journeys, screenshots, migrated UI, font scale 1.5, TalkBack, keyboard/cutout behavior and physical presentation are therefore unverified. No physical USB phone is required by the approved plan. |
+
+The test-only `migratedBalanceWithoutNewStatisticsDoesNotRestartFirstSessionTeaching` was first observed failing, then passed after migration detection began checking saved currency and retained progress fields. This is JVM behavior evidence; the compiled Compose migration fixture is not a live UI observation. M3 source commit `3417bab` was pushed normally to `v1.2`; this evidence-ledger update follows in a separate documentation commit.
+
 ## Existing implementation observed in source
 
-Kotlin/Compose single app module, decimal helpers, immutable GameState, pure engines, ViewModel/StateFlow, DataStore and schema-1 serializer/migration entry point. 20 miner definitions, 32 ordinary upgrades, 40 achievements, 10 events, 12 prestige nodes, 10 power stages and 7 cooling stages are the prior inspected content baseline. JVM engine/repository/number/ViewModel tests and JVM 'journey' tests exist. `androidTest` currently has MineScreenTest; do not equate JVM journeys with real emulator UI tests.
+The inspected v1 baseline used a Kotlin/Compose single app module, decimal helpers, immutable GameState, pure engines, ViewModel/StateFlow, DataStore and a schema-1 serializer/migration entry point. It had 20 miner definitions, 32 ordinary upgrades, 40 achievements, 10 events, 12 prestige nodes, 10 power stages and 7 cooling stages before M1/M2 updates above. JVM engine/repository/number/ViewModel tests and JVM journey tests exist. M3 adds Compose `MineScreenTest`, `FirstSessionLoopTest` and `FacilityNavigationTest`; compiled or JVM journeys are not live emulator UI evidence.
 
 Manifest has launcher/round icon references, correct app label and backup disabled. Icon foreground/background are Android Studio's default robot/green grid. Theme is a basic light platform parent; branded system splash needs implementation and visual inspection.
 
