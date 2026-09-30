@@ -1,6 +1,7 @@
 package com.antigravity.bitcoinminingtycoon.util
 
 import java.math.BigDecimal
+import java.math.BigInteger
 import java.math.MathContext
 import java.math.RoundingMode
 import kotlin.math.floor
@@ -28,6 +29,27 @@ object GameNumber {
         if (parsed < ZERO) ZERO else parsed
     } catch (_: Exception) {
         ZERO
+    }
+
+    /** Exact floor square root for nonnegative economic values, without a Double conversion. */
+    fun floorSquareRoot(value: BigDecimal): BigInteger {
+        val integer = value.toBigInteger()
+        if (integer.signum() <= 0) return BigInteger.ZERO
+
+        // Newton iteration uses only long-supported BigInteger operations (minSdk 31).
+        var estimate = BigInteger.ONE.shiftLeft((integer.bitLength() + 1) / 2)
+        while (true) {
+            val next = estimate.add(integer.divide(estimate)).shiftRight(1)
+            if (next >= estimate) return estimate
+            estimate = next
+        }
+    }
+
+    /** Converts a nonnegative integer counter safely when the mathematical result can exceed Long. */
+    fun saturatingLong(value: BigInteger): Long = when {
+        value.signum() <= 0 -> 0L
+        value >= BigInteger.valueOf(Long.MAX_VALUE) -> Long.MAX_VALUE
+        else -> value.toLong()
     }
 
     fun add(a: BigDecimal, b: BigDecimal): BigDecimal =

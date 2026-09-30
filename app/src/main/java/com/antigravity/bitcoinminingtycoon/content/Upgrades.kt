@@ -125,7 +125,7 @@ object Upgrades {
             category = UpgradeCategory.HARDWARE,
             costUsd = BigDecimal("12000.00"),
             multiplier = 1.50,
-            targetMinerId = "gpu_6x_rig"
+            targetMinerId = "gpu_rig_6x"
         ),
         UpgradeDefinition(
             id = "asic_custom_firmware",

@@ -8,7 +8,7 @@ Updated 2026-09-30. Active branch v1.2. Baseline v1.0 commit `33787bc4fa61ea4f78
 |---|---|---|
 | Repo preparation | docs/guidance/version branches/cleanup delivered | recorded preparation checks below; no Android build claimed |
 | M0 workstation/baseline | baseline JVM/lint/debug checks and serializer fixtures recorded | partial; release baseline hit Maven Central HTTP 429, and API31/API36 emulator evidence is blocked by missing Studio, images and virtualization |
-| M1 save compatibility/correctness | pending | no migrations or runtime changes in preparation |
+| M1 save compatibility/correctness | partial; schema-2, migration/recovery and deterministic runtime contracts implemented on v1.2 | JVM/build/lint pass; Android instrumentation is compiled but cannot run because the workspace has no device and Maven Central returned HTTP 429 for UTP dependencies |
 | M2 economy/content | pending | no new balance simulation results yet |
 | M3 home/teaching/navigation | pending | existing v1 UI remains |
 | M4 facility scene/feedback | pending | new scenes/haptics not implemented |
@@ -47,6 +47,23 @@ M0 is **partial, not complete**. JVM, lint and debug packaging establish the sou
 | Emulator / Studio | Correctly configured `adb devices -l` starts the daemon and lists no devices. Android CLI `1.0.16457483` has no existing AVD. Supported `emulator create` selects a device profile but exposes no API selector; SDK catalog queries find no API31/API36 system images (including the broad `system-images` query). No emulator binary, Android Studio executable or `/dev/kvm` exists; `android-cli ... studio check` reports no running Studio and exits 1. No screenshot, Compose instrumentation, TalkBack, process-death UI or launcher evidence is claimed. Physical USB is not required; Device Manager/image/virtualization availability is the present blocker. |
 
 Verbose Gradle logs and permission output are under ignored `artifacts/m0/`; the v1.0 debug APK is retained there as a same-key baseline. The emulator and release-build blockers are independent of M1 implementation and remain open; M0 must not be marked verified until its required baseline release/device evidence is produced or explicitly recorded as blocked.
+
+## M1 execution evidence — 2026-09-30
+
+M1 is **software-implemented but not complete**. Source, fixture, JVM, debug package, lint and Android-test compilation evidence are available. No connected Compose result or v1.0 in-place emulator update is claimed; the environment currently has no attached device and the UTP test runner's uncached dependencies are rate-limited.
+
+| Check | Performed evidence |
+|---|---|
+| Scope / refs | Work remains on `v1.2`; local `main`/`work`, `origin/main`, `origin/v1.0` and `origin/v1.2` were inspected before this change. `git diff --check` passed. No historical ref was changed. |
+| Schema and fixture migration | Added schema-2 statistics, fractional playtime, bounded energy history, discovery state and pending offline summaries. The migration decoder is field-aware, rejects malformed/future schemas, checkpoints recoverable damaged data before field repair and preserves unknown content IDs. `SaveMigrationsTest` runs all ten actual v1.0 serializer fixtures. A DataStore integration test proves valid schema-1 `mid.json` is committed as schema 2 before repository readiness; a transient in-memory marker forces that commit even when the migrated value is otherwise equal. |
+| Recovery contract | `SaveRecoveryCheckpoint` keeps a bounded raw copy and consent token in app-private storage. Corrupt input stays locked until explicit confirmation; DataStore applies consent on the next launch, then repository initialization durably writes a schema-2 fresh save before acknowledging the token. Future-schema and oversized saves remain read-only. `SaveReadinessScreenTest` covers confirmation/restart messaging and unsupported schema, and compiles as Android instrumentation. |
+| Runtime correctness | Added serialized latest-state mutations with durable critical actions; startup atomically credits bounded offline production and advances the save boundary; events split at expiry; subsecond playtime accumulates; RNG continuation and production/reward source totals persist. Prestige uses exact `BigInteger` Newton square root compatible with minSdk 31 and saturating point counters. Fixed stable upgrade ID `gpu_6x_custom_os` to target `gpu_rig_6x`. |
+| JVM tests | `bash ./gradlew --no-daemon --console=plain testDebugUnitTest` passed: 25 XML suites, 126 tests, 0 failures, 0 errors, 0 skipped. Targeted migration/repository/ViewModel/offline/event/market/prestige/game/adversarial/number/content suite also passed. Full output is in ignored `artifacts/m1/testDebugUnitTest.log`. |
+| Android source/package checks | `bash ./gradlew --no-daemon --console=plain lintDebug assembleDebug compileDebugAndroidTestKotlin` passed. Lint reports 0 errors and 16 existing warnings. The Compose recovery test source compiled; `app/build/outputs/apk/debug/app-debug.apk` was produced. Full output is in ignored `artifacts/m1/lint-assemble-androidtest-compile.log`. |
+| Connected / signed update | `adb devices -l` listed no devices. `bash ./gradlew --no-daemon --console=plain connectedDebugAndroidTest` failed before device selection because Maven Central returned HTTP 429 for uncached Unified Test Platform dependencies (`proto-google-common-protos`, `auto-service`, `dagger`, protobuf, Kotlin reflect and coroutines). No screenshot, live DataStore relaunch, process-death test or signed in-place upgrade is claimed. |
+| Remaining M1 gate | Obtain Android Studio Device Manager or a supported API31/API36 emulator plus resolved UTP dependencies; run `connectedDebugAndroidTest`, save-upgrade Journey 08, and record screenshots/process-death evidence. No physical USB phone is required by the plan. |
+
+The JVM tests establish logic and serializer behavior only. The Android Compose test was compiled, not executed. Do not change M1 to complete until its emulator acceptance is observed or the blocker is resolved and evidence is recorded.
 
 ## Existing implementation observed in source
 

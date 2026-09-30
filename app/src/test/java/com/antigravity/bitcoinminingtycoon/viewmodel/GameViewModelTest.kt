@@ -3,6 +3,9 @@ package com.antigravity.bitcoinminingtycoon.viewmodel
 import com.antigravity.bitcoinminingtycoon.data.FakeSaveDataSource
 import com.antigravity.bitcoinminingtycoon.data.GameRepository
 import com.antigravity.bitcoinminingtycoon.data.GameSave
+import com.antigravity.bitcoinminingtycoon.content.Miners
+import com.antigravity.bitcoinminingtycoon.platform.SoundEffect
+import com.antigravity.bitcoinminingtycoon.platform.SoundPlayer
 import com.antigravity.bitcoinminingtycoon.platform.FakeClockProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,6 +24,11 @@ import java.math.BigDecimal
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GameViewModelTest {
+
+    private class RecordingSoundPlayer : SoundPlayer {
+        val played = mutableListOf<SoundEffect>()
+        override fun play(sound: SoundEffect) { played += sound }
+    }
 
     private val testDispatcher = StandardTestDispatcher()
     private val testScope = TestScope(testDispatcher)
@@ -77,5 +85,46 @@ class GameViewModelTest {
         val afterMax = repo.gameState.value
         assertEquals(0, BigDecimal.ZERO.compareTo(afterMax.btcBigDecimal))
         assertEquals(0, BigDecimal("50000.00").compareTo(afterMax.usdBigDecimal))
+    }
+
+    @Test
+    fun concurrentDailyRewardClaimsAwardTheCumulativePointOnce() = testScope.runTest {
+        val source = FakeSaveDataSource(
+            GameSave(
+                dailyRewardDay = 7,
+                miners = mapOf(Miners.ALL.first().id to 1L)
+            )
+        )
+        val repo = GameRepository(source, clock, this)
+        val sound = RecordingSoundPlayer()
+        val viewModel = GameViewModel(repo, clock, sound)
+        advanceUntilIdle()
+
+        viewModel.onClaimDailyReward()
+        viewModel.onClaimDailyReward()
+        advanceUntilIdle()
+
+        assertEquals(1L, repo.gameState.value.satoshiPoints)
+        assertEquals(1L, repo.gameState.value.stats.dailyPointsEarnedSinceV2)
+        assertEquals(1, repo.gameState.value.dailyRewardDay)
+        assertEquals(1, sound.played.count { it == SoundEffect.DAILY_REWARD })
+    }
+
+    @Test
+    fun failedPurchaseCommitDoesNotPublishOrPlaySuccessSound() = testScope.runTest {
+        val miner = Miners.ALL.first()
+        val source = FakeSaveDataSource(GameSave(usd = miner.baseCostUsd.toPlainString()))
+        val repo = GameRepository(source, clock, this)
+        val sound = RecordingSoundPlayer()
+        val viewModel = GameViewModel(repo, clock, sound)
+        advanceUntilIdle()
+        val before = repo.gameState.value
+        source.failWrites = true
+
+        viewModel.onBuyMiner(miner.id)
+        advanceUntilIdle()
+
+        assertEquals(before, repo.gameState.value)
+        assertEquals(0, sound.played.count { it == SoundEffect.BUY })
     }
 }

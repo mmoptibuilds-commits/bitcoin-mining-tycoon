@@ -171,7 +171,9 @@ object EventEngine {
                 val newBtc = state.btcBigDecimal.add(btcGain, GameNumber.MATH_CONTEXT)
                 val newLifetimeBtc = state.stats.lifetimeBtcBigDecimal.add(btcGain, GameNumber.MATH_CONTEXT)
                 val updatedStats = state.stats.copy(
-                    lifetimeBtcMined = newLifetimeBtc.toPlainString()
+                    lifetimeBtcMined = newLifetimeBtc.toPlainString(),
+                    windfallBtc = GameNumber.fromString(state.stats.windfallBtc)
+                        .add(btcGain, GameNumber.MATH_CONTEXT).toPlainString()
                 )
 
                 val updatedState = state.copy(

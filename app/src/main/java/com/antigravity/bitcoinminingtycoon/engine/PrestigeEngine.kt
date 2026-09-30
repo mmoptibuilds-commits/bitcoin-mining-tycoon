@@ -3,9 +3,9 @@ package com.antigravity.bitcoinminingtycoon.engine
 import com.antigravity.bitcoinminingtycoon.content.PrestigeNodes
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.model.StatsState
+import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import java.math.BigDecimal
-import kotlin.math.floor
-import kotlin.math.sqrt
+import java.math.BigInteger
 
 data class PrestigePreview(
     val earnablePoints: Long,
@@ -25,10 +25,8 @@ object PrestigeEngine {
      * Single source of truth shared identically by preview and apply.
      */
     fun calculateTotalPointsFromLifetimeBtc(lifetimeBtc: BigDecimal): Long {
-        if (lifetimeBtc < BigDecimal.ONE) return 0L
-        val btcDouble = lifetimeBtc.toDouble()
-        if (btcDouble.isNaN() || btcDouble.isInfinite() || btcDouble <= 0.0) return 0L
-        return floor(sqrt(btcDouble)).toLong().coerceAtLeast(0L)
+        if (lifetimeBtc.signum() <= 0) return 0L
+        return GameNumber.saturatingLong(GameNumber.floorSquareRoot(lifetimeBtc))
     }
 
     /**
@@ -36,8 +34,11 @@ object PrestigeEngine {
      */
     fun calculateEarnablePoints(state: GameState): Long {
         val totalPoints = calculateTotalPointsFromLifetimeBtc(state.stats.lifetimeBtcBigDecimal)
-        val alreadyAwarded = state.stats.lifetimeSatoshiPointsEarned
-        return (totalPoints - alreadyAwarded).coerceAtLeast(0L)
+        val alreadyAwardedInV2 = saturatingAdd(
+            state.stats.prestigePointsBaselineV2,
+            state.stats.prestigePointsEarnedSinceV2
+        )
+        return (totalPoints - alreadyAwardedInV2).coerceAtLeast(0L)
     }
 
     /**
@@ -56,7 +57,7 @@ object PrestigeEngine {
             minersCountToLose = minersCount,
             upgradesCountToLose = upgradesCount,
             currentSatoshiPoints = state.satoshiPoints,
-            newSatoshiPointsTotal = state.satoshiPoints + earnable
+            newSatoshiPointsTotal = saturatingAdd(state.satoshiPoints, earnable)
         )
     }
 
@@ -79,24 +80,27 @@ object PrestigeEngine {
             1
         }
 
-        val updatedSatoshiPoints = state.satoshiPoints + earnable
-        val updatedLifetimeSp = state.stats.lifetimeSatoshiPointsEarned + earnable
-        val updatedPrestiges = state.stats.totalPrestiges + 1L
+        val updatedSatoshiPoints = saturatingAdd(state.satoshiPoints, earnable)
+        val updatedLifetimeSp = saturatingAdd(state.stats.lifetimeSatoshiPointsEarned, earnable)
+        val updatedEarnedSinceV2 = saturatingAdd(state.stats.prestigePointsEarnedSinceV2, earnable)
+        val updatedPrestiges = saturatingAdd(state.stats.totalPrestiges, 1L)
 
         val updatedStats = state.stats.copy(
             totalPrestiges = updatedPrestiges,
-            lifetimeSatoshiPointsEarned = updatedLifetimeSp
+            lifetimeSatoshiPointsEarned = updatedLifetimeSp,
+            prestigePointsEarnedSinceV2 = updatedEarnedSinceV2
         )
 
         val resetState = state.copy(
             btc = "0",
             usd = startingUsd.toPlainString(),
-            manualHashStrength = "10",
+            manualHashStrength = GameState().manualHashStrength,
             miners = emptyMap(),
             purchasedUpgrades = emptySet(),
             powerGridTier = startingPowerGridTier,
             coolingTier = 1,
             activeEvents = emptyList(),
+            autoSellEnabled = false,
             satoshiPoints = updatedSatoshiPoints,
             stats = updatedStats
         )
@@ -132,4 +136,8 @@ object PrestigeEngine {
         val (stateWithAchievements, _) = AchievementEngine.evaluate(updatedState)
         return stateWithAchievements
     }
+
+    private fun saturatingAdd(a: Long, b: Long): Long =
+        if (b > 0L && a > Long.MAX_VALUE - b) Long.MAX_VALUE else (a + b).coerceAtLeast(0L)
+
 }

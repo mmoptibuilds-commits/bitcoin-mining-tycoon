@@ -3,6 +3,7 @@ package com.antigravity.bitcoinminingtycoon.engine
 import com.antigravity.bitcoinminingtycoon.content.CoolingStage
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
 import com.antigravity.bitcoinminingtycoon.content.Miners
+import com.antigravity.bitcoinminingtycoon.content.Events
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import java.math.BigDecimal
@@ -28,7 +29,7 @@ object ThermalEngine {
 
         // Active event modifier
         for (event in state.activeEvents) {
-            total *= event.heatModifier
+            if (Events.getById(event.eventId) != null) total *= event.heatModifier
         }
 
         return total

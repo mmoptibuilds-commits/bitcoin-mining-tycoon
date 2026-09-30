@@ -26,6 +26,21 @@ data class ActiveEventState(
 )
 
 @Serializable
+data class PowerEnergySample(
+    val elapsedSeconds: Long,
+    val demandKw: String,
+    val capacityKw: String,
+    val energyKwh: String
+)
+
+@Serializable
+data class PendingOfflineSummary(
+    val durationSeconds: Double,
+    val creditedBtc: String,
+    val creditedAtWallMillis: Long
+)
+
+@Serializable
 data class StatsState(
     val lifetimeBtcMined: String = "0",
     val lifetimeUsdEarned: String = "0",
@@ -39,7 +54,19 @@ data class StatsState(
     val totalPrestiges: Long = 0L,
     val lifetimeSatoshiPointsEarned: Long = 0L,
     val totalPlaytimeSeconds: Long = 0L,
-    val totalEventsTriggered: Long = 0L
+    val totalEventsTriggered: Long = 0L,
+    val manualBtc: String = "0",
+    val foregroundPassiveBtc: String = "0",
+    val offlineBtc: String = "0",
+    val dailyRewardBtc: String = "0",
+    val windfallBtc: String = "0",
+    val achievementRewardBtc: String = "0",
+    val playtimeFractionalSeconds: String = "0",
+    val powerEnergyHistory: List<PowerEnergySample> = emptyList(),
+    val peakTemperatureC: Double = 25.0,
+    val prestigePointsBaselineV2: Long = 0L,
+    val prestigePointsEarnedSinceV2: Long = 0L,
+    val dailyPointsEarnedSinceV2: Long = 0L
 ) {
     val lifetimeBtcBigDecimal: BigDecimal get() = GameNumber.fromString(lifetimeBtcMined)
     val lifetimeUsdBigDecimal: BigDecimal get() = GameNumber.fromString(lifetimeUsdEarned)
@@ -63,7 +90,7 @@ data class SettingsState(
  */
 @Serializable
 data class GameState(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = 2,
     val btc: String = "0",
     val usd: String = "0",
     val manualHashStrength: String = "50000",
@@ -88,7 +115,12 @@ data class GameState(
     val onboardingCompleted: Boolean = false,
     val settings: SettingsState = SettingsState(),
     val lastSaveWallMillis: Long = 0L,
-    val rngSeed: Long = 1337L
+    val rngSeed: Long = 1337L,
+    val balanceRulesVersion: Int = 1,
+    val completedTeachingCueIds: Set<String> = emptySet(),
+    val highestDiscoveredFacilityStage: Int = 0,
+    val batteryFriendlyAnimations: Boolean = false,
+    val pendingOfflineSummary: PendingOfflineSummary? = null
 ) {
     val btcBigDecimal: BigDecimal get() = GameNumber.fromString(btc)
     val usdBigDecimal: BigDecimal get() = GameNumber.fromString(usd)

@@ -55,6 +55,36 @@ class OfflineDailyTest {
     }
 
     @Test
+    fun positiveOfflineIntervalsBelowSummaryThresholdStillCreditProduction() {
+        val state = GameState(miners = mapOf(Miners.ALL[0].id to 5L))
+        val report = OfflineEngine.calculateOfflineProgress(state, 1_000_000L, 1_059_999L)
+
+        assertEquals(59.999, report.durationSeconds, 0.001)
+        assertTrue(report.minedBtc > BigDecimal.ZERO)
+        assertEquals(report.minedBtc, OfflineEngine.applyOfflineReward(state, report).btcBigDecimal)
+    }
+
+    @Test
+    fun offlineProductionStopsEventMultiplierAtItsExpiryBoundary() {
+        val state = GameState(
+            miners = mapOf(Miners.ALL[0].id to 5L),
+            activeEvents = listOf(
+                com.antigravity.bitcoinminingtycoon.model.ActiveEventState(
+                    eventId = "bull_run",
+                    expiresAtWallMillis = 1_005_000L,
+                    multiplier = 2.0
+                )
+            )
+        )
+        val report = OfflineEngine.calculateOfflineProgress(state, 1_000_000L, 1_010_000L)
+        val baseRate = EconomyEngine.calculateEffectiveHashrate(state.copy(activeEvents = emptyList()))
+        val expected = EconomyEngine.calculateMinedBtc(baseRate.multiply(BigDecimal("2")), 5.0)
+            .add(EconomyEngine.calculateMinedBtc(baseRate, 5.0))
+
+        assertEquals(0, expected.compareTo(report.minedBtc))
+    }
+
+    @Test
     fun testZeroHashrateYieldsZeroOfflineBtc() {
         val state = GameState() // No automated miners
         val lastSaved = 1_000_000L
@@ -140,6 +170,8 @@ class OfflineDailyTest {
         assertEquals(1L, reward?.satoshiPointsReward)
         assertEquals(1L, claimedState.satoshiPoints)
         assertEquals(1L, claimedState.stats.lifetimeSatoshiPointsEarned)
+        assertEquals(1L, claimedState.stats.dailyPointsEarnedSinceV2)
+        assertEquals(0L, claimedState.stats.prestigePointsEarnedSinceV2)
         assertEquals("Cycle should wrap back to Day 1", 1, claimedState.dailyRewardDay)
     }
 }

@@ -113,15 +113,19 @@ object DailyRewards {
             newLifetimeUsd = newLifetimeUsd.add(reward.usdReward, GameNumber.MATH_CONTEXT)
         }
 
-        val newSatoshiPoints = state.satoshiPoints + reward.satoshiPointsReward
-        val newLifetimeSp = state.stats.lifetimeSatoshiPointsEarned + reward.satoshiPointsReward
+        val newSatoshiPoints = saturatingAdd(state.satoshiPoints, reward.satoshiPointsReward)
+        val newLifetimeSp = saturatingAdd(state.stats.lifetimeSatoshiPointsEarned, reward.satoshiPointsReward)
+        val newDailyPoints = saturatingAdd(state.stats.dailyPointsEarnedSinceV2, reward.satoshiPointsReward)
 
         val nextDay = if (state.dailyRewardDay >= 7) 1 else state.dailyRewardDay + 1
 
         val updatedStats = state.stats.copy(
             lifetimeBtcMined = newLifetimeBtc.toPlainString(),
             lifetimeUsdEarned = newLifetimeUsd.toPlainString(),
-            lifetimeSatoshiPointsEarned = newLifetimeSp
+            lifetimeSatoshiPointsEarned = newLifetimeSp,
+            dailyRewardBtc = GameNumber.fromString(state.stats.dailyRewardBtc)
+                .add(reward.btcReward, GameNumber.MATH_CONTEXT).toPlainString(),
+            dailyPointsEarnedSinceV2 = newDailyPoints
         )
 
         val updatedState = state.copy(
@@ -136,4 +140,7 @@ object DailyRewards {
         val (stateWithAchievements, _) = AchievementEngine.evaluate(updatedState)
         return Pair(stateWithAchievements, reward)
     }
+
+    private fun saturatingAdd(left: Long, right: Long): Long =
+        if (right > 0L && left > Long.MAX_VALUE - right) Long.MAX_VALUE else (left + right).coerceAtLeast(0L)
 }

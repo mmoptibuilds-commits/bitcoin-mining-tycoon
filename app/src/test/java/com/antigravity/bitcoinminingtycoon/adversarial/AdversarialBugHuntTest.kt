@@ -198,13 +198,12 @@ class AdversarialBugHuntTest {
         repo.initialize()
         advanceUntilIdle()
 
-        // First purchase succeeds
-        val state1 = FleetEngine.buyMiner(repo.gameState.value, miner.id, BulkMode.X1)
-        repo.updateInMemory(state1)
-
-        // Second immediate purchase must fail because balance is $0.00
-        val state2 = FleetEngine.buyMiner(repo.gameState.value, miner.id, BulkMode.X1)
-        repo.updateInMemory(state2)
+        repo.mutateLatest(com.antigravity.bitcoinminingtycoon.data.MutationDurability.IMMEDIATE) {
+            FleetEngine.buyMiner(it, miner.id, BulkMode.X1)
+        }
+        repo.mutateLatest(com.antigravity.bitcoinminingtycoon.data.MutationDurability.IMMEDIATE) {
+            FleetEngine.buyMiner(it, miner.id, BulkMode.X1)
+        }
 
         assertEquals(1L, repo.gameState.value.miners[miner.id])
         assertEquals(0, BigDecimal.ZERO.compareTo(repo.gameState.value.usdBigDecimal))

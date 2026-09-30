@@ -8,6 +8,16 @@ import java.math.BigDecimal
 class GameNumberTest {
 
     @Test
+    fun exactFloorSquareRootSupportsFractionalAndHugeValues() {
+        assertEquals(java.math.BigInteger.ZERO, GameNumber.floorSquareRoot(BigDecimal("0.999999")))
+        assertEquals(java.math.BigInteger.valueOf(3L), GameNumber.floorSquareRoot(BigDecimal("15")))
+        assertEquals(java.math.BigInteger.valueOf(4L), GameNumber.floorSquareRoot(BigDecimal("16")))
+        assertEquals(java.math.BigInteger.valueOf(4L), GameNumber.floorSquareRoot(BigDecimal("17")))
+        assertEquals(java.math.BigInteger.valueOf(12L), GameNumber.floorSquareRoot(BigDecimal("144.999")))
+        assertEquals(Long.MAX_VALUE, GameNumber.saturatingLong(GameNumber.floorSquareRoot(BigDecimal("1" + "0".repeat(200)))))
+    }
+
+    @Test
     fun arithmetic_neverProducesNegativeOrNaN() {
         val a = GameNumber.fromLong(100L)
         val b = GameNumber.fromLong(250L)

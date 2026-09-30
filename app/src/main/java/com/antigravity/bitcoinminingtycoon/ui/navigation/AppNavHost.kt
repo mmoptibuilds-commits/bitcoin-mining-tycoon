@@ -40,8 +40,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.antigravity.bitcoinminingtycoon.ui.components.AchievementBanner
 import com.antigravity.bitcoinminingtycoon.ui.screens.mine.MineScreen
+import com.antigravity.bitcoinminingtycoon.ui.screens.SaveReadinessScreen
 import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
 import com.antigravity.bitcoinminingtycoon.viewmodel.GameViewModel
+import com.antigravity.bitcoinminingtycoon.data.SaveReadiness
 
 @Composable
 fun AppNavHost(
@@ -50,6 +52,15 @@ fun AppNavHost(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val prestigeSheetVisible by viewModel.prestigeSheetVisible.collectAsState()
+
+    if (uiState.saveReadiness != SaveReadiness.Ready) {
+        SaveReadinessScreen(
+            readiness = uiState.saveReadiness,
+            onStartNewSave = { viewModel.onStartNewSaveFromCheckpoint() },
+            onRetry = { viewModel.onRetrySaveLoading() }
+        )
+        return
+    }
 
     var activeTab by remember { mutableStateOf(RootTab.MINE) }
     var currentDestination by remember { mutableStateOf<AppDestination>(AppDestination.MainTabs) }

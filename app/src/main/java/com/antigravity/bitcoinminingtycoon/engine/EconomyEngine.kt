@@ -1,6 +1,7 @@
 package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
+import com.antigravity.bitcoinminingtycoon.content.Events
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
@@ -63,7 +64,7 @@ object EconomyEngine {
 
         var eventMultiplier = 1.0
         for (event in state.activeEvents) {
-            eventMultiplier *= event.multiplier
+            if (Events.getById(event.eventId) != null) eventMultiplier *= event.multiplier
         }
 
         // Prestige multiplier: 1% per permanent Satoshi Point (5% if satoshi_vision unlocked)

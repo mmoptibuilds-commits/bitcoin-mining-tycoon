@@ -3,9 +3,12 @@ package com.antigravity.bitcoinminingtycoon.data
 import com.antigravity.bitcoinminingtycoon.model.ActiveEventState
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.model.MarketTrend
+import com.antigravity.bitcoinminingtycoon.model.PendingOfflineSummary
+import com.antigravity.bitcoinminingtycoon.model.PowerEnergySample
 import com.antigravity.bitcoinminingtycoon.model.SettingsState
 import com.antigravity.bitcoinminingtycoon.model.StatsState
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /**
  * Persisted save file data transfer object.
@@ -16,7 +19,7 @@ data class GameSave(
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     val btc: String = "0",
     val usd: String = "0",
-    val manualHashStrength: String = "10",
+    val manualHashStrength: String = "50000",
     val miners: Map<String, Long> = emptyMap(),
     val purchasedUpgrades: Set<String> = emptySet(),
     val powerGridTier: Int = 1,
@@ -38,10 +41,17 @@ data class GameSave(
     val onboardingCompleted: Boolean = false,
     val settings: SettingsState = SettingsState(),
     val lastSaveWallMillis: Long = 0L,
-    val rngSeed: Long = 1337L
+    val rngSeed: Long = 1337L,
+    val balanceRulesVersion: Int = 1,
+    val completedTeachingCueIds: Set<String> = emptySet(),
+    val highestDiscoveredFacilityStage: Int = 0,
+    val batteryFriendlyAnimations: Boolean = false,
+    val pendingOfflineSummary: PendingOfflineSummary? = null,
+    /** In-memory marker that makes DataStore commit serializer migrations on startup. */
+    @Transient val requiresSchemaCommit: Boolean = false
 ) {
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 1
+        const val CURRENT_SCHEMA_VERSION = 2
 
         fun fromGameState(state: GameState, currentWallMillis: Long): GameSave =
             GameSave(
@@ -70,7 +80,12 @@ data class GameSave(
                 onboardingCompleted = state.onboardingCompleted,
                 settings = state.settings,
                 lastSaveWallMillis = currentWallMillis,
-                rngSeed = state.rngSeed
+                rngSeed = state.rngSeed,
+                balanceRulesVersion = state.balanceRulesVersion,
+                completedTeachingCueIds = state.completedTeachingCueIds,
+                highestDiscoveredFacilityStage = state.highestDiscoveredFacilityStage,
+                batteryFriendlyAnimations = state.batteryFriendlyAnimations,
+                pendingOfflineSummary = state.pendingOfflineSummary
             )
     }
 
@@ -101,6 +116,11 @@ data class GameSave(
             onboardingCompleted = onboardingCompleted,
             settings = settings,
             lastSaveWallMillis = lastSaveWallMillis,
-            rngSeed = rngSeed
+            rngSeed = rngSeed,
+            balanceRulesVersion = balanceRulesVersion,
+            completedTeachingCueIds = completedTeachingCueIds,
+            highestDiscoveredFacilityStage = highestDiscoveredFacilityStage,
+            batteryFriendlyAnimations = batteryFriendlyAnimations,
+            pendingOfflineSummary = pendingOfflineSummary
         )
 }

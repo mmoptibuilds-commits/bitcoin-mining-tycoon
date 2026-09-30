@@ -2,12 +2,57 @@ package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.model.ActiveEventState
 import com.antigravity.bitcoinminingtycoon.model.GameState
+import com.antigravity.bitcoinminingtycoon.data.GameSave
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
 
 class GameEngineTest {
+
+    @Test
+    fun tenthSecondTicksAccumulatePersistedFractionalPlaytime() {
+        var state = GameState(miners = mapOf("ancient_cpu" to 1L))
+        repeat(10) { index ->
+            state = GameEngine.tick(state, 0.1, wallMillis = 1_700_000_000_000L + index * 100L)
+        }
+
+        assertEquals(1L, state.stats.totalPlaytimeSeconds)
+        assertEquals("0", state.stats.playtimeFractionalSeconds)
+    }
+
+    @Test
+    fun randomConsumingTickAdvancesSeedAndSurvivesSaveReload() {
+        val original = GameState(rngSeed = 42L)
+        val firstTick = GameEngine.tick(original, 2.0, 1_700_000_000_000L)
+        assertNotEquals(original.rngSeed, firstTick.rngSeed)
+
+        val restored = GameSave.fromGameState(firstTick, 1_700_000_002_000L).toGameState()
+        assertEquals(
+            GameEngine.tick(firstTick.copy(lastSaveWallMillis = 1_700_000_002_000L), 2.0, 1_700_000_002_000L),
+            GameEngine.tick(restored, 2.0, 1_700_000_002_000L)
+        )
+    }
+
+    @Test
+    fun foregroundMiningUsesActiveEventOnlyUntilItsExpiryInsideTick() {
+        val end = 1_700_000_010_000L
+        val state = GameState(
+            miners = mapOf("ancient_cpu" to 5L),
+            activeEvents = listOf(
+                ActiveEventState("bull_run", end - 5_000L, multiplier = 2.0)
+            )
+        )
+        val baseHashrate = EconomyEngine.calculateEffectiveHashrate(state.copy(activeEvents = emptyList()))
+        val expected = EconomyEngine.calculateMinedBtc(baseHashrate.multiply(BigDecimal("2")), 5.0)
+            .add(EconomyEngine.calculateMinedBtc(baseHashrate, 5.0))
+
+        val after = GameEngine.tick(state, 10.0, end)
+
+        assertEquals(0, expected.compareTo(after.btcBigDecimal))
+        assertTrue(after.activeEvents.isEmpty())
+    }
 
     @Test
     fun performManualTap_incrementsStatsAndBtc() {
