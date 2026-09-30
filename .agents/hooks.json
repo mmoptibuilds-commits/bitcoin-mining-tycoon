@@ -1,0 +1,12 @@
+{
+  "final-quality-gate": {
+    "enabled": true,
+    "Stop": [
+      {
+        "type": "command",
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .agents/scripts/stop-quality-gate.ps1",
+        "timeout": 420
+      }
+    ]
+  }
+}
