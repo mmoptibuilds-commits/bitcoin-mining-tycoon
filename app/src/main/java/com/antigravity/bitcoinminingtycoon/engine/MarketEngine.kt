@@ -139,9 +139,7 @@ object MarketEngine {
 
         if (btcToSell.compareTo(BigDecimal.ZERO) <= 0) return state
 
-        val basePrice = state.marketPriceBigDecimal
-        val marketMultiplier = UpgradeEngine.calculateMarketMultiplier(state)
-        val effectivePrice = basePrice.multiply(BigDecimal.valueOf(marketMultiplier), GameNumber.MATH_CONTEXT)
+        val effectivePrice = effectiveSalePrice(state)
         val usdGain = btcToSell.multiply(effectivePrice, GameNumber.MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
 
         val nextBtc = currentBtc.subtract(btcToSell, GameNumber.MATH_CONTEXT).max(BigDecimal.ZERO)
@@ -177,6 +175,13 @@ object MarketEngine {
         }
         return btcToSell.multiply(price, GameNumber.MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
     }
+
+    /** Cash shown beside Sell 10/50/MAX, using the same sale price and rounding as [sellBtc]. */
+    fun previewProceeds(state: GameState, percentage: Int): BigDecimal =
+        calculateProceeds(state.btcBigDecimal, effectiveSalePrice(state), percentage)
+
+    private fun effectiveSalePrice(state: GameState): BigDecimal = state.marketPriceBigDecimal
+        .multiply(BigDecimal.valueOf(UpgradeEngine.calculateMarketMultiplier(state)), GameNumber.MATH_CONTEXT)
 
     /**
      * Evaluates auto-sell condition on newly mined BTC delta.

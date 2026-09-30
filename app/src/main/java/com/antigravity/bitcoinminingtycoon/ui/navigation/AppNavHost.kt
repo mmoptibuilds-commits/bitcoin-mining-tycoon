@@ -1,8 +1,6 @@
 package com.antigravity.bitcoinminingtycoon.ui.navigation
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,24 +24,31 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.antigravity.bitcoinminingtycoon.ui.components.AchievementBanner
-import com.antigravity.bitcoinminingtycoon.ui.screens.mine.MineScreen
-import com.antigravity.bitcoinminingtycoon.ui.screens.SaveReadinessScreen
-import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
-import com.antigravity.bitcoinminingtycoon.viewmodel.GameViewModel
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
 import com.antigravity.bitcoinminingtycoon.data.SaveReadiness
+import com.antigravity.bitcoinminingtycoon.ui.components.AchievementBanner
+import com.antigravity.bitcoinminingtycoon.ui.screens.SaveReadinessScreen
+import com.antigravity.bitcoinminingtycoon.ui.screens.mine.MineScreen
+import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
+import com.antigravity.bitcoinminingtycoon.viewmodel.GameUiState
+import com.antigravity.bitcoinminingtycoon.viewmodel.GameViewModel
 
 @Composable
 fun AppNavHost(
@@ -52,7 +57,6 @@ fun AppNavHost(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val prestigeSheetVisible by viewModel.prestigeSheetVisible.collectAsState()
-
     if (uiState.saveReadiness != SaveReadiness.Ready) {
         SaveReadinessScreen(
             readiness = uiState.saveReadiness,
@@ -62,229 +66,125 @@ fun AppNavHost(
         return
     }
 
-    var activeTab by remember { mutableStateOf(RootTab.MINE) }
-    var currentDestination by remember { mutableStateOf<AppDestination>(AppDestination.MainTabs) }
+    val backStack: NavBackStack<NavKey> = rememberNavBackStack(AppDestination.Home)
+    val entryStateHolder = rememberSaveableStateHolder()
+    val entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator<NavKey>(entryStateHolder))
 
-    // Predictive back handler for full-screen destinations
-    BackHandler(enabled = currentDestination != AppDestination.MainTabs) {
-        currentDestination = AppDestination.MainTabs
-    }
-
-    Box(modifier = modifier.fillMaxSize()) {
-        when (currentDestination) {
-            AppDestination.MainTabs -> {
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    contentWindowInsets = WindowInsets.safeDrawing,
-                    containerColor = AppColors.Background,
-                    topBar = {
-                        AppTopBar(
-                            onSettingsClick = { currentDestination = AppDestination.Settings }
+    Box(modifier = modifier.fillMaxSize().background(AppColors.Background)) {
+        NavDisplay(
+            backStack = backStack,
+            onBack = { if (backStack.size > 1) backStack.removeAt(backStack.lastIndex) },
+            entryDecorators = entryDecorators,
+            entryProvider = entryProvider {
+                entry<AppDestination.Home> {
+                    HomeDestination(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        onOpenStats = { backStack.add(AppDestination.Stats) },
+                        onOpenSettings = { backStack.add(AppDestination.Settings) },
+                        onOpenSatoshiTree = { backStack.add(AppDestination.SatoshiTree) }
+                    )
+                }
+                entry<AppDestination.Stats> {
+                    Column(Modifier.fillMaxSize().background(AppColors.Background)) {
+                        DetailTopBar(title = "Stats", onBack = { popBackStack(backStack) })
+                        com.antigravity.bitcoinminingtycoon.ui.screens.stats.StatsScreen(
+                            uiState = uiState,
+                            modifier = Modifier.weight(1f)
                         )
-                    },
-                    bottomBar = {
-                        AppBottomNavBar(
-                            selectedTab = activeTab,
-                            onTabSelected = { activeTab = it }
-                        )
-                    }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        when (activeTab) {
-                            RootTab.MINE -> {
-                                MineScreen(
-                                    uiState = uiState,
-                                    onMineClick = { viewModel.onManualMineTap() },
-                                    onQuickSell = { percent -> viewModel.onQuickSell(percent) },
-                                    onToggleAutoSell = { viewModel.onToggleAutoSell() },
-                                    onSetAutoSellThreshold = { threshold -> viewModel.onSetAutoSellThreshold(threshold) },
-                                    onClaimWindfall = { eventId -> viewModel.onClaimWindfall(eventId) },
-                                    onDismissAchievement = { viewModel.onDismissAchievement() },
-                                    onCollectOfflineReward = { viewModel.onCollectOfflineReward() },
-                                    onShowDailyRewardSheet = { viewModel.onShowDailyRewardSheet() },
-                                    onDismissDailyRewardSheet = { viewModel.onDismissDailyRewardSheet() },
-                                    onClaimDailyReward = { viewModel.onClaimDailyReward() }
-                                )
-                            }
-                            RootTab.HARDWARE -> {
-                                com.antigravity.bitcoinminingtycoon.ui.screens.hardware.HardwareScreen(
-                                    uiState = uiState,
-                                    bulkMode = uiState.bulkMode,
-                                    onBulkModeSelected = { mode -> viewModel.onSetBulkMode(mode) },
-                                    onBuyMiner = { minerId -> viewModel.onBuyMiner(minerId) }
-                                )
-                            }
-                            RootTab.UPGRADES -> {
-                                com.antigravity.bitcoinminingtycoon.ui.screens.upgrades.UpgradesScreen(
-                                    uiState = uiState,
-                                    onBuyUpgrade = { id -> viewModel.onBuyUpgrade(id) },
-                                    onUpgradePowerGrid = { viewModel.onUpgradePowerGrid() },
-                                    onUpgradeCooling = { viewModel.onUpgradeCooling() },
-                                    onNavigateToSatoshiTree = { currentDestination = AppDestination.SatoshiTree }
-                                )
-                            }
-                            RootTab.STATS -> {
-                                com.antigravity.bitcoinminingtycoon.ui.screens.stats.StatsScreen(
-                                    uiState = uiState
-                                )
-                            }
-                        }
                     }
                 }
+                entry<AppDestination.Settings> {
+                    com.antigravity.bitcoinminingtycoon.ui.screens.settings.SettingsScreen(
+                        settings = uiState.gameState.settings,
+                        onBackClick = { popBackStack(backStack) },
+                        onUpdateSettings = viewModel::onUpdateSettings,
+                        onFactoryReset = {
+                            viewModel.onFactoryReset()
+                            while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+                        }
+                    )
+                }
+                entry<AppDestination.SatoshiTree> {
+                    com.antigravity.bitcoinminingtycoon.ui.screens.prestige.SatoshiTreeScreen(
+                        gameState = uiState.gameState,
+                        onBackClick = { popBackStack(backStack) },
+                        onBuyNode = viewModel::onBuyPrestigeNode,
+                        onOpenPrestigeSheet = viewModel::onShowPrestigeSheet
+                    )
+                }
             }
-            AppDestination.Settings -> {
-                com.antigravity.bitcoinminingtycoon.ui.screens.settings.SettingsScreen(
-                    settings = uiState.gameState.settings,
-                    onBackClick = { currentDestination = AppDestination.MainTabs },
-                    onUpdateSettings = { newSettings -> viewModel.onUpdateSettings(newSettings) },
-                    onFactoryReset = {
-                        viewModel.onFactoryReset()
-                        currentDestination = AppDestination.MainTabs
-                    }
-                )
-            }
-            AppDestination.SatoshiTree -> {
-                com.antigravity.bitcoinminingtycoon.ui.screens.prestige.SatoshiTreeScreen(
-                    gameState = uiState.gameState,
-                    onBackClick = { currentDestination = AppDestination.MainTabs },
-                    onBuyNode = { nodeId -> viewModel.onBuyPrestigeNode(nodeId) },
-                    onOpenPrestigeSheet = { viewModel.onShowPrestigeSheet() }
-                )
-            }
-        }
+        )
 
-        // Floating heads-up achievement notification overlay at top
         AchievementBanner(
             achievement = uiState.unlockedAchievement,
-            onDismiss = { viewModel.onDismissAchievement() },
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(top = 64.dp, start = 16.dp, end = 16.dp)
+            onDismiss = viewModel::onDismissAchievement,
+            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 64.dp, start = 16.dp, end = 16.dp)
         )
 
         if (prestigeSheetVisible && uiState.prestigePreview != null) {
             com.antigravity.bitcoinminingtycoon.ui.screens.prestige.PrestigeSheet(
                 preview = uiState.prestigePreview!!,
-                onConfirm = { viewModel.onConfirmPrestige() },
-                onDismiss = { viewModel.onDismissPrestigeSheet() }
-            )
-        }
-
-        if (!uiState.gameState.onboardingCompleted) {
-            com.antigravity.bitcoinminingtycoon.ui.screens.onboarding.OnboardingDialog(
-                onDismiss = { viewModel.onCompleteOnboarding() }
+                onConfirm = viewModel::onConfirmPrestige,
+                onDismiss = viewModel::onDismissPrestigeSheet
             )
         }
     }
 }
 
 @Composable
-private fun AppTopBar(
-    onSettingsClick: () -> Unit
+private fun HomeDestination(
+    uiState: GameUiState,
+    viewModel: GameViewModel,
+    onOpenStats: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenSatoshiTree: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = AppColors.SurfaceLow
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .height(60.dp)
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "BITCOIN MINING TYCOON",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.PrimaryCopper,
-                    letterSpacing = 1.sp
-                )
-                Text(
-                    text = "OPERATIONS CONSOLE // V1.0",
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    color = AppColors.TextMedium
-                )
-            }
+    var activeTab by rememberSaveable { mutableStateOf(RootTab.MINE) }
+    val tabStateHolder = rememberSaveableStateHolder()
 
-            Box(
-                modifier = Modifier
-                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(AppColors.SurfaceHigh)
-                    .border(1.dp, AppColors.BorderSubtle, RoundedCornerShape(8.dp))
-                    .clickable(
-                        role = Role.Button,
-                        onClick = onSettingsClick
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets.safeDrawing,
+        containerColor = AppColors.Background,
+        topBar = {
+            AppTopBar(onStatsClick = onOpenStats, onSettingsClick = onOpenSettings)
+        },
+        bottomBar = {
+            AppBottomNavBar(selectedTab = activeTab, onTabSelected = { activeTab = it })
+        }
+    ) { contentPadding ->
+        Box(Modifier.fillMaxSize().padding(contentPadding)) {
+            tabStateHolder.SaveableStateProvider(activeTab.name) {
+                when (activeTab) {
+                    RootTab.MINE -> MineScreen(
+                        uiState = uiState,
+                        onMineClick = viewModel::onManualMineTap,
+                        onQuickSell = viewModel::onQuickSell,
+                        onToggleAutoSell = viewModel::onToggleAutoSell,
+                        onSetAutoSellThreshold = viewModel::onSetAutoSellThreshold,
+                        onClaimWindfall = viewModel::onClaimWindfall,
+                        onDismissAchievement = viewModel::onDismissAchievement,
+                        onCollectOfflineReward = viewModel::onCollectOfflineReward,
+                        onShowDailyRewardSheet = viewModel::onShowDailyRewardSheet,
+                        onDismissDailyRewardSheet = viewModel::onDismissDailyRewardSheet,
+                        onClaimDailyReward = viewModel::onClaimDailyReward,
+                        onCompleteTeachingCue = viewModel::onCompleteTeachingCue,
+                        onNavigateToHardware = { activeTab = RootTab.HARDWARE },
+                        onNavigateToUpgrades = { activeTab = RootTab.UPGRADES }
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .semantics { contentDescription = "Open Settings and Facility Protocols" },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "⚙ PROTOCOLS",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = AppColors.TextHigh
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AppBottomNavBar(
-    selectedTab: RootTab,
-    onTabSelected: (RootTab) -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = AppColors.SurfaceLow
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .height(64.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RootTab.values().forEach { tab ->
-                val isSelected = tab == selectedTab
-                val textColor = if (isSelected) AppColors.PrimaryCopper else AppColors.TextDisabled
-                val bgColor = if (isSelected) AppColors.PrimaryCopperDark else Color.Transparent
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize()
-                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                        .background(bgColor)
-                        .clickable(
-                            role = Role.Tab,
-                            onClick = { onTabSelected(tab) }
-                        )
-                        .semantics {
-                            contentDescription = "${tab.title} tab, ${if (isSelected) "selected" else "not selected"}"
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = tab.title.uppercase(),
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = textColor
+                    RootTab.HARDWARE -> com.antigravity.bitcoinminingtycoon.ui.screens.hardware.HardwareScreen(
+                        uiState = uiState,
+                        bulkMode = uiState.bulkMode,
+                        onBulkModeSelected = viewModel::onSetBulkMode,
+                        onBuyMiner = viewModel::onBuyMiner
+                    )
+                    RootTab.UPGRADES -> com.antigravity.bitcoinminingtycoon.ui.screens.upgrades.UpgradesScreen(
+                        uiState = uiState,
+                        onBuyUpgrade = viewModel::onBuyUpgrade,
+                        onUpgradePowerGrid = viewModel::onUpgradePowerGrid,
+                        onUpgradeCooling = viewModel::onUpgradeCooling,
+                        onNavigateToSatoshiTree = onOpenSatoshiTree
                     )
                 }
             }
@@ -292,47 +192,79 @@ private fun AppBottomNavBar(
     }
 }
 
+private fun popBackStack(backStack: NavBackStack<NavKey>) {
+    if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+}
+
 @Composable
-private fun PlaceholderScreen(
-    title: String,
-    onBack: (() -> Unit)? = null
-) {
+private fun AppTopBar(onStatsClick: () -> Unit, onSettingsClick: () -> Unit) {
+    Surface(color = AppColors.SurfaceLow, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().height(58.dp).padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text("Bitcoin Mining Tycoon", color = AppColors.TextHigh, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Offline mining simulation", color = AppColors.TextMedium, fontSize = 11.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                HeaderAction("Stats", onStatsClick)
+                HeaderAction("Settings", onSettingsClick)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailTopBar(title: String, onBack: () -> Unit) {
+    Surface(color = AppColors.SurfaceLow, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().height(58.dp).padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HeaderAction("Back", onBack)
+            Text(title, color = AppColors.TextHigh, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 12.dp))
+        }
+    }
+}
+
+@Composable
+private fun HeaderAction(label: String, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(AppColors.Background)
-            .padding(16.dp),
+        modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .background(AppColors.SurfaceHigh, RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = label }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Text(label, color = AppColors.TextHigh, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun AppBottomNavBar(selectedTab: RootTab, onTabSelected: (RootTab) -> Unit) {
+    Surface(color = AppColors.SurfaceLow, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding().height(60.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = title,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.PrimaryCopper,
-                fontFamily = FontFamily.Monospace
-            )
-            Text(
-                text = "Subsystem online. Loading telemetry...",
-                fontSize = 13.sp,
-                color = AppColors.TextMedium
-            )
-            if (onBack != null) {
+            RootTab.values().forEach { tab ->
+                val selected = tab == selectedTab
                 Box(
-                    modifier = Modifier
-                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                        .clickable(role = Role.Button, onClick = onBack),
+                    modifier = Modifier.weight(1f).fillMaxSize().defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .background(if (selected) AppColors.PrimaryCopperDark else AppColors.SurfaceLow)
+                        .clickable(role = Role.Tab, onClick = { onTabSelected(tab) })
+                        .semantics {
+                            contentDescription = "${tab.title} tab"
+                            this.selected = selected
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "< RETURN TO DASHBOARD",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AppColors.TextHigh
-                    )
+                    Text(tab.title, color = if (selected) AppColors.PrimaryCopper else AppColors.TextMedium, fontSize = 13.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
                 }
             }
         }

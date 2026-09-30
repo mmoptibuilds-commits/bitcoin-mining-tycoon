@@ -3,13 +3,16 @@ package com.antigravity.bitcoinminingtycoon.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
+import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.data.GameRepository
 import com.antigravity.bitcoinminingtycoon.data.MutationDurability
 import com.antigravity.bitcoinminingtycoon.data.MutationResult
 import com.antigravity.bitcoinminingtycoon.data.SaveReadiness
 import com.antigravity.bitcoinminingtycoon.engine.EconomyEngine
+import com.antigravity.bitcoinminingtycoon.engine.MarketEngine
 import com.antigravity.bitcoinminingtycoon.engine.GameEngine
 import com.antigravity.bitcoinminingtycoon.model.GameState
+import com.antigravity.bitcoinminingtycoon.model.TeachingCueIds
 import com.antigravity.bitcoinminingtycoon.platform.ClockProvider
 import com.antigravity.bitcoinminingtycoon.platform.NoOpSoundPlayer
 import com.antigravity.bitcoinminingtycoon.platform.SoundEffect
@@ -189,7 +192,9 @@ class GameViewModel(
         viewModelScope.launch {
             var unlocked: com.antigravity.bitcoinminingtycoon.content.AchievementDefinition? = null
             val result = repository.mutateLatest(MutationDurability.COALESCED) { current ->
-                GameEngine.performManualTap(current).also { next ->
+                GameEngine.performManualTap(current).copy(
+                    completedTeachingCueIds = current.completedTeachingCueIds + TeachingCueIds.MINE_BITCOIN
+                ).also { next ->
                     val id = (next.achievements - current.achievements).firstOrNull()
                     if (id != null) unlocked = com.antigravity.bitcoinminingtycoon.content.Achievements.getById(id)
                 }
@@ -207,7 +212,11 @@ class GameViewModel(
     fun onQuickSell(percentage: Int) {
         viewModelScope.launch {
             val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
-                com.antigravity.bitcoinminingtycoon.engine.MarketEngine.sellBtc(it, percentage)
+                val sold = MarketEngine.sellBtc(it, percentage)
+                if (sold.stats.totalBtcSoldBigDecimal > it.stats.totalBtcSoldBigDecimal &&
+                    sold.usdBigDecimal >= Miners.ALL.first().baseCostUsd) {
+                    sold.copy(completedTeachingCueIds = sold.completedTeachingCueIds + TeachingCueIds.SELL_BITCOIN)
+                } else sold
             }
             playMutationFeedback(result, success = null, invalid = null)
         }
@@ -239,7 +248,10 @@ class GameViewModel(
     fun onBuyMiner(minerId: String) {
         viewModelScope.launch {
             val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
-                com.antigravity.bitcoinminingtycoon.engine.FleetEngine.buyMiner(it, minerId, _bulkMode.value)
+                val bought = com.antigravity.bitcoinminingtycoon.engine.FleetEngine.buyMiner(it, minerId, _bulkMode.value)
+                if (bought != it && it.miners.values.none { count -> count > 0L }) {
+                    bought.copy(completedTeachingCueIds = bought.completedTeachingCueIds + TeachingCueIds.BUY_FIRST_MACHINE)
+                } else bought
             }
             playMutationFeedback(result, SoundEffect.BUY, SoundEffect.INVALID)
         }
@@ -342,10 +354,19 @@ class GameViewModel(
         }
     }
 
+    fun onCompleteTeachingCue(cueId: String) {
+        if (cueId !in TeachingCueIds.ALL) return
+        viewModelScope.launch {
+            repository.mutateLatest(MutationDurability.COALESCED) {
+                it.copy(completedTeachingCueIds = it.completedTeachingCueIds + cueId)
+            }
+        }
+    }
+
     fun onFactoryReset() {
         viewModelScope.launch {
             repository.mutateLatest(MutationDurability.IMMEDIATE) {
-                GameState(onboardingCompleted = true, lastSaveWallMillis = it.lastSaveWallMillis)
+                GameState(onboardingCompleted = false, lastSaveWallMillis = it.lastSaveWallMillis)
             }
         }
     }

@@ -7,6 +7,7 @@ import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.platform.SoundEffect
 import com.antigravity.bitcoinminingtycoon.platform.SoundPlayer
 import com.antigravity.bitcoinminingtycoon.platform.FakeClockProvider
+import com.antigravity.bitcoinminingtycoon.model.TeachingCueIds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -126,5 +127,33 @@ class GameViewModelTest {
 
         assertEquals(before, repo.gameState.value)
         assertEquals(0, sound.played.count { it == SoundEffect.BUY })
+    }
+
+    @Test
+    fun firstSessionTeachingCuesCommitWithTapSaleAndFirstMachineActions() = testScope.runTest {
+        val tapRepository = GameRepository(FakeSaveDataSource(), clock, this)
+        val tapViewModel = GameViewModel(tapRepository, clock)
+        advanceUntilIdle()
+
+        tapViewModel.onManualMineTap()
+        advanceUntilIdle()
+        assertTrue(TeachingCueIds.MINE_BITCOIN in tapRepository.gameState.value.completedTeachingCueIds)
+
+        val saleRepository = GameRepository(FakeSaveDataSource(GameSave(btc = "1.00000000")), clock, this)
+        val saleViewModel = GameViewModel(saleRepository, clock)
+        advanceUntilIdle()
+        saleViewModel.onQuickSell(100)
+        advanceUntilIdle()
+        assertTrue(TeachingCueIds.SELL_BITCOIN in saleRepository.gameState.value.completedTeachingCueIds)
+
+        val miner = Miners.ALL.first()
+        saleViewModel.onBuyMiner(miner.id)
+        advanceUntilIdle()
+        assertEquals(1L, saleRepository.gameState.value.miners[miner.id])
+        assertTrue(TeachingCueIds.BUY_FIRST_MACHINE in saleRepository.gameState.value.completedTeachingCueIds)
+
+        saleViewModel.onCompleteTeachingCue(TeachingCueIds.PASSIVE_MINING)
+        advanceUntilIdle()
+        assertTrue(TeachingCueIds.PASSIVE_MINING in saleRepository.gameState.value.completedTeachingCueIds)
     }
 }
