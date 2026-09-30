@@ -7,7 +7,7 @@ Updated 2026-09-30. Active branch v1.2. Baseline v1.0 commit `33787bc4fa61ea4f78
 | Milestone | Implemented | Verification |
 |---|---|---|
 | Repo preparation | docs/guidance/version branches/cleanup delivered | recorded preparation checks below; no Android build claimed |
-| M0 workstation/baseline | pending | run on user's Windows/Android Studio environment |
+| M0 workstation/baseline | baseline JVM/lint/debug checks and serializer fixtures recorded | partial; release baseline hit Maven Central HTTP 429, and API31/API36 emulator evidence is blocked by missing Studio, images and virtualization |
 | M1 save compatibility/correctness | pending | no migrations or runtime changes in preparation |
 | M2 economy/content | pending | no new balance simulation results yet |
 | M3 home/teaching/navigation | pending | existing v1 UI remains |
@@ -30,6 +30,23 @@ This evidence covers repository preparation only; gameplay, migration, icon and 
 | Review | Read-only GPT-6 Luna Max document/scope review identified save-field coverage, optional-harness completion and evidence gaps; those contracts were corrected before the documentation commit |
 
 The preparation scripts and detailed validation output are session scratch checks, not Android tests or shipped app tooling. The final documentation commit and its complete changed-file history are recorded in v1.2 Git history; this ledger does not embed its own commit hash. Recheck refs and scope before starting implementation.
+
+## M0 execution evidence — 2026-09-30
+
+M0 is **partial, not complete**. JVM, lint and debug packaging establish the source baseline; release packaging and every device-dependent observation remain unverified until their environment blockers are resolved.
+
+| Check | Performed evidence |
+|---|---|
+| Approved plan / refs | Plan commit `1bcabb4ea6cf924cd658d92313b9e8c2d0aed2d9` pushed normally to `v1.2`; `origin/main` remains `f911b9fb403a986265f2755647ef07a969c3f4c1`, `origin/v1.0` remains `33787bc4fa61ea4f78de06b7b81dd4094371cf39`, and `origin/v1.2` is `1bcabb4ea6cf924cd658d92313b9e8c2d0aed2d9` at this check. Existing local `work` ref at the main merge commit is preserved. |
+| Toolchain | JDK `17.0.20.1`; Gradle wrapper `9.1.0`; Android Gradle Plugin `9.0.1`; SDK platform 36 and build-tools `36.0.0`; app ID/namespace `com.antigravity.bitcoinminingtycoon`, minSdk 31, target/compile SDK 36. SDK processing emitted the known XML-v4-versus-v3 parser warning. |
+| Baseline tests/lint | `bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks` passed: 24 XML suites, 94 tests, 0 failures/errors/skips. `bash ./gradlew --no-daemon --console=plain lintDebug --rerun-tasks` passed. |
+| Baseline debug APK | `bash ./gradlew --no-daemon --console=plain assembleDebug --rerun-tasks` passed. SHA-256: `ea7eddeed31520647dcd3eccd79f4746e4aef41a2d6eb7c16cee570b3b82b077`. `aapt dump badging` reports version `1.0`/code `1`, minSdk `31`, target/compile `36`. `aapt dump permissions` shows only the generated dynamic-receiver permission; no INTERNET permission. `apksigner` certificate SHA-256: `e8c7f74bc7c2e017e55880394510c4c2df728e6cb8e6cd45bb4835a89eb84932`. |
+| Schema-1 fixtures | Archived `origin/v1.0` at `33787bc4fa61ea4f78de06b7b81dd4094371cf39`; a temporary test in that source snapshot called the actual v1.0 `GameSaveSerializer`. `BMT_FIXTURE_OUT_DIR=/workspace/bitcoin-mining-tycoon/app/src/test/resources/saves/v1 bash ./gradlew --no-daemon --console=plain testDebugUnitTest --tests '*LegacyFixtureWriterTest'` passed: 1 test, 0 failures/errors/skips. It generated ten anonymized JSON fixtures: early, mid, late, prestiged, daily-claimed, settings-disabled, large-value, missing-optional, unknown-content and expired-event. The temporary writer was not added to v1.2 source sets. |
+| Old APK/signing comparison | Archived v1.0 `assembleDebug --rerun-tasks` passed. `artifacts/m0/v1.0-debug.apk` reports the same package, version `1.0`/code `1`, and certificate SHA-256 as the v1.2 baseline debug APK; its APK hash is also `ea7eddeed31520647dcd3eccd79f4746e4aef41a2d6eb7c16cee570b3b82b077`. This is useful same-key debug baseline evidence, not the planned minified v1.0 release APK. |
+| Release baseline | Current-source `assembleRelease --rerun-tasks` and archived v1.0 `assembleRelease` both failed before packaging because Maven Central returned HTTP 429 for uncached `org.jetbrains.kotlin:compose-group-mapping:2.3.20` (“Your ip has exceeded rate limits”). The exact artifact is not in the Gradle cache. Direct GETs to Maven Central and repo1 both returned 429; do not change pinned versions or claim a release APK. |
+| Emulator / Studio | Correctly configured `adb devices -l` starts the daemon and lists no devices. Android CLI `1.0.16457483` has no existing AVD. Supported `emulator create` selects a device profile but exposes no API selector; SDK catalog queries find no API31/API36 system images (including the broad `system-images` query). No emulator binary, Android Studio executable or `/dev/kvm` exists; `android-cli ... studio check` reports no running Studio and exits 1. No screenshot, Compose instrumentation, TalkBack, process-death UI or launcher evidence is claimed. Physical USB is not required; Device Manager/image/virtualization availability is the present blocker. |
+
+Verbose Gradle logs and permission output are under ignored `artifacts/m0/`; the v1.0 debug APK is retained there as a same-key baseline. The emulator and release-build blockers are independent of M1 implementation and remain open; M0 must not be marked verified until its required baseline release/device evidence is produced or explicitly recorded as blocked.
 
 ## Existing implementation observed in source
 
