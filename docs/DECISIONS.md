@@ -1,82 +1,32 @@
-# Decision Log
+# Active decision log — v1.2
 
-## D001 Native Android
+Updated 2026-09-30. Prior dashboard/four-equal-tab/Antigravity-only initial-build decisions are superseded by this log; the original history remains on v1.0.
 
-Kotlin + Compose chosen for native performance, direct Android tooling, haptics/audio/lifecycle control and strongest Antigravity/Android CLI support.
+| Decision | Result and rationale |
+|---|---|
+| D01 Platform | Existing native Kotlin/Compose Android game; one module; no rebuild from scaffold |
+| D02 Data | Offline/local only, no backend/account/network/ads/IAP/analytics or real cryptocurrency |
+| D03 Resources | Keep Bitcoin + USD/Cash and simulated market, power/cooling and prestige depth |
+| D04 Experience | Understand without crypto knowledge; teach by action; progressive disclosure |
+| D05 Navigation | Mine facility/home, Hardware/Upgrades secondary, Stats/Settings utilities |
+| D06 Visuals | Keep graphite/copper; remove console/card-wall feel; normal type plus restrained numerical telemetry |
+| D07 Facility | Original Canvas/vector staged scenes; capped density; sci-fi escalation; no 3D/generated art |
+| D08 Pacing | Reference first prestige 25–35 min, simulation policy in ECONOMY_BALANCE; later runs faster |
+| D09 Content | Retain all 20 miners/IDs and existing systems; ordinary upgrades 50–60, grouped paths; 12-node permanent tree retained |
+| D10 Feedback | Real haptics, procedural sound, state-driven bounded tap/purchase/milestone effects; reduced motion and battery option |
+| D11 Saves | Preserve assets/settings/permanent data and application/storage/signing identity; new tracking honestly labeled |
+| D12 Offline | 12-hour cap; no background mining service/offline trading; honor event expiry, exactly-once reward |
+| D13 Daily | Seven-day cumulative cycle, 20-hour cooldown, no missed-day reset; reveal after first machine, rebalance rewards |
+| D14 Thermal | Retain deterministic equilibrium and soft power/thermal constraints; no destruction |
+| D15 Prestige | Temporary economy reset; permanent progress retained; preview/apply agree; locked auto-sell disabled |
+| D16 Harness | Codex/GPT-6 Luna Max owns full implementation, verification and fixes; optional Antigravity second pass at a stable commit; same evidence gates and no concurrent writers |
+| D17 Test surface | Android Studio emulators; no USB phone requirement; physical behavior explicitly unverified |
+| D18 Branding | Replace Android robot icon, adaptive/themed layers, coherent system splash/App Info/recents/About |
+| D19 Versions | Preserve main and v1.0; active v1.2; future version branches retained; no invented v1.1 |
+| D20 Scope | Sideload minified APK; no Play publication or user-facing backup feature in this redesign |
+| D21 Toolchain | Current API 36 and working stable dependencies retained until an evidence-backed scoped upgrade is needed |
+| D22 Agent quality | Requirements live once; per-milestone meaningful checks, truthful blockers; no repeated full suite solely for ceremonial completion |
 
-## D002 Single app module
+## Implementation rulings
 
-Feature coupling is high and scope is one game. Multiple Gradle modules would increase one-shot build/configuration risk without current payoff.
-
-## D003 Local only
-
-No backend/account/ads/IAP/analytics. No INTERNET permission.
-
-## D004 BTC + USD
-
-Mining produces fictional BTC; selling converts it to USD used for purchases. This gives the simulated market meaningful gameplay.
-
-## D005 Dashboard-style Mine screen
-
-Chosen over a giant Cookie-Clicker-only surface. Preserves the clicker loop while surfacing market, power, heat and efficiency.
-
-## D006 Bottom navigation
-
-Mine / Hardware / Upgrades / Stats. Settings via gear. Fewer nested screens means fewer navigation bugs.
-
-## D007 12-hour offline cap
-
-Balances idle reward with return incentive and bounds time manipulation.
-
-## D008 No background mining service
-
-Offline progress is computed on resume/launch. Avoids battery drain, foreground-service complexity and platform restrictions.
-
-## D009 No background music
-
-Sound effects + haptics only in V1. Reduces lifecycle/audio complexity and package size.
-
-## D010 No generated imagery
-
-Use Compose/Canvas/vector assets. This is both a design requirement and anti-slop constraint.
-
-## D011 Main writer + verifier subagents
-
-Avoid simultaneous writers in the same coupled module. Subagents independently audit/test and return findings; primary agent owns production edits.
-
-## D012 Power & cooling infrastructure in Upgrades screen
-
-Power capacity and cooling dissipation are purchased as dedicated infrastructure upgrade tracks in the Upgrades screen for USD. Flat kW capacity and cooling dissipation ratings are provided per tier.
-
-## D013 Instantaneous thermal equilibrium model
-
-Temperature is evaluated deterministically per tick based on instantaneous heat generation vs cooling dissipation (`temp = ambient + factor * max(0, heat - cooling)`). No dynamic heat accumulation buffer or differential cooling cooldown curves; 100% deterministic and stateless across offline gaps.
-
-## D014 Offline earnings snapshot & BTC accumulation
-
-Offline progression accumulates raw BTC based on the player's effective hashrate snapshot at background time (active events expire naturally according to their remaining duration). No market trading or auto-sell occurs during offline time; player collects raw BTC on return and trades manually.
-
-## D015 Full economy prestige reset
-
-Prestige executes a hard economy reset: BTC, USD, owned miners, standard upgrades, and power/cooling levels reset to baseline. Persisted across prestige: Satoshi Points, unlocked Satoshi Tree permanent nodes, lifetime statistics, achievements, daily reward streak, onboarding state, and settings.
-
-## D016 Hybrid random event triggering
-
-Ambient market and grid events (Bull Run, Market Crash, Heat Wave) trigger automatically via pseudo-random seeded timers with an active dashboard banner. Windfall events (Lucky Block, ASIC Breakthrough) spawn interactive clickable badges on the Mine screen to reward active play.
-
-## D017 Configurable threshold auto-sell
-
-When the auto-sell upgrade is unlocked, players configure a threshold rule in the Market card (e.g. sell when price exceeds target or during Bull trend) to automatically convert incoming mined BTC to USD.
-
-## D018 Non-punishing cumulative 7-day daily reward
-
-Daily rewards unlock at least 20 hours after the previous claim (or next calendar day). Missed days do not reset the streak; players advance continuously along the 7-day cycle.
-
-## D019 Procedural audio synthesis via AudioTrack
-
-Sound effects (tap, buy, invalid, achievement, event, prestige, daily reward) are synthesized programmatically in code using Android `AudioTrack`. Zero external audio assets, zero bundle bloat, zero licensing ambiguity.
-
-## D020 Clean hybrid navigation architecture
-
-The 4 root tabs (Mine, Hardware, Upgrades, Stats) persist at the base. Settings and the Satoshi Prestige Tree navigate as full-screen destinations with top app bars and predictive back support. Prestige confirmation and Offline return use modal bottom sheets.
-
+Add only new consequential decisions, with trigger, choice, evidence and practical consequence. The executor may settle routine details within the approved scope; record changes that affect game rules, schema, public interfaces, dependencies or pacing. Do not overwrite user decisions or manufacture approval.

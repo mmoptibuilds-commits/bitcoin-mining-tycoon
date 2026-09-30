@@ -1,19 +1,8 @@
 ---
 trigger: always_on
-description: Prevent features from being marked complete without logic, UI, UX and device verification.
+description: Evidence-gated features and honest emulator completion.
 ---
 
-# Testing gate
+# testing-gates
 
-After each feature, before implementing the next:
-
-1. targeted logic tests;
-2. persistence/migration tests if relevant;
-3. Compose interaction tests if relevant;
-4. preview/screenshot + semantics inspection if relevant;
-5. emulator/device run;
-6. Journey/manual core-flow test;
-7. boundary/failure case;
-8. regression suite.
-
-A compile-only result is failure to satisfy this rule. Fix failures before proceeding. Do not weaken valid assertions.
+Use TEST_STRATEGY and RELEASE_CHECKLIST. Per changed milestone run meaningful logic/migration and Compose checks, native screenshot/semantics review, emulator journey/boundary case and affected regressions. Full suite at integration/release or justified shared change. Do not weaken valid assertions, fabricate results or mark blocked checks passed. Documentation-only work uses document/diff checks. Removed old debug-only stop hook is not release proof.

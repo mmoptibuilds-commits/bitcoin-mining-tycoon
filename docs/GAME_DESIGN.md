@@ -1,87 +1,50 @@
-# Game Design Document
+# Game design — v1.2
 
-## Design pillars
+## Pillars
 
-1. **Immediate causality:** every tap/purchase should visibly affect a number the player cares about.
-2. **Automation fantasy:** manual tapping becomes progressively irrelevant as the mining empire scales.
-3. **Meaningful decisions without punishment:** market timing, power/cooling choices and prestige timing matter, but mistakes do not permanently brick progression.
-4. **Escalation:** bedroom PC → industrial facility → orbital/planetary absurdity.
-5. **Readable complexity:** systems are deep but surface one clear next action.
+Immediate causality; automation becomes valuable; visible expansion; readable depth; mistakes reduce efficiency without destroying progress. Early grounded PC hardware makes the later lunar/Dyson absurdity satisfying.
 
-## Resource model
+## Resources and loop
 
-- **BTC:** mined resource; can be held or sold.
-- **USD:** primary purchasing currency.
-- **Hashrate:** production capacity.
-- **Power capacity/usage:** growth constraint.
-- **Heat/thermal load:** efficiency constraint.
-- **Satoshi Points:** permanent prestige currency.
+Tap produces Bitcoin immediately. Selling converts it to simulated USD/Cash. Cash buys machines, upgrades, power and cooling. Machines produce Bitcoin continuously; selling remains a simple decision before automation unlock. Satoshi Points are permanent prestige currency. Present hashrate as Mining speed, with H/s and larger units as secondary telemetry.
 
-## Tick model
+## Navigation and disclosure
 
-Recommended engine tick: 4–10 logical updates/sec. UI animation may run independently. Production uses delta-time so low frame rate never reduces economy output.
+Mine is home, Hardware/Upgrades secondary, Stats/Settings utilities. Begin with Bitcoin, Mine, Sell and an accessible first-machine goal; the buyer must be reachable before owning a machine. Reveal passive speed after buying it; power/cooling when demand makes them relevant; automation/events/rewards as useful; prestige near eligibility. Never hide a needed remedy behind an unlock requiring that remedy. Migrated users reveal all systems implied by their saved progress.
 
-## Production concept
+## Facility stages
 
-`effectiveHashrate = rawHashrate × globalMultipliers × powerFactor × thermalFactor × eventFactor × prestigeFactor`
+| Stage | Qualifying owned tier | Visual change |
+|---|---|---|
+| Salvaged PC | new game / CPU | recognisable desktop, fan and cables |
+| GPU bench | Gaming GPU | boards and open chassis |
+| Rig workshop | Dual / 6× rig | several linked rigs, supply rails |
+| ASIC room | Entry / Industrial ASIC / Rack / Server Room | denser racks and organised airflow |
+| Warehouse | Warehouse / Farm | building-scale operation |
+| Energy campus | Hydro / Geothermal / Nuclear | power source and compute buildings |
+| Fusion megafarm | Immersion / Fusion | advanced cooling and reactor motif |
+| Orbital array | Orbital Solar Miner | planet horizon and solar-compute array |
+| Lunar/quantum base | Lunar / Quantum | lunar structures and quantum core motif |
+| Dyson swarm | Dyson Hash Swarm | restrained star/swarm geometry |
 
-`btcMined = effectiveHashrate × btcPerHashCoefficient × deltaSeconds`
+Choose the highest currently owned qualifying tier; ownership counts add capped density/detail. Derived current stage resets with prestige; a persistent highest-discovered stage can support milestone history. Preview next-stage silhouettes without claiming they are owned.
 
-All constants live in balance configuration, not UI.
+## Economy rules
 
-## Power behavior
+`effectiveHashrate = raw hardware production × upgrade × power × thermal × event × prestige modifiers`, each once. Foreground production is elapsed-time based. Power uses a readable soft constraint; heat uses the existing deterministic equilibrium. Taps stay possible during constraints. The market is a local seeded game simulation, never a financial feed.
 
-Power is a soft constraint. If demand exceeds capacity, apply a transparent diminishing factor rather than silently turning random miners off. Example concept:
-`powerFactor = min(1, capacity / demand)` with a floor only if required for game feel.
+## Active/idle progression
 
-## Thermal behavior
+The first machine materially changes income. Balanced play purchases useful hardware/upgrades/infrastructure rather than waiting for a lucky event. By minute 5 the reference strategy receives more Bitcoin from passive production than manual taps. Late-game tapping remains optional; combo visuals and critical upgrades never become a mandatory grind.
 
-Use bands or a smooth curve, with readable thresholds. Example initial bands:
+A day-one reward appears after the first-machine loop and assists rather than replaces it. Offline BTC is meaningful, clamped at 12 hours and respects temporary modifier expiry. Keep snapshot-style offline production without hypothetical automatic purchases or market trades.
 
-- below 70°C equivalent: 100%
-- 70–80: 90–100%
-- 80–90: 75–90%
-- 90+: 50–75%
+## Prestige and permanent progress
 
-No permanent damage.
+One preview/apply source; cumulative earned-point bookkeeping; permanent bonuses accelerate rebuilding. Reset BTC/cash, machines, ordinary upgrades, power/cooling, temporary events/boosts and enabled automation. Preserve Satoshi balance/nodes, cumulative lifetime awards/stats, achievements, daily cycle/cooldown, settings, teaching completion and discovered milestones. Starting bonuses from permanent nodes are included in the preview. Preserve the auto-sell threshold across upgrades and prestige; disable enabled automation on prestige while its ordinary upgrade is locked. An app upgrade preserves valid enabled state when the required upgrade remains owned. Follow SAVE_COMPATIBILITY for the complete migration contract.
 
-## Market behavior
+## Events and feedback
 
-Use a saved seeded RNG and state machine:
+Events create temporary opportunities. State-driven tap/purchase/milestone feedback may use bounded particles; no ambient glitter. A simple static notification replaces nonessential animation in reduced motion. Player choices are rewarded through a visible facility and clearer next goal, not casino-like presentation or real-profit promises.
 
-- Neutral
-- Bull
-- Bear
-- Volatile
-- Crash/Pump event override
-
-Keep the market fictional. The graph should be small and useful, not styled like a real exchange terminal.
-
-## Prestige behavior
-
-Prestige reward comes from lifetime BTC mined using a sublinear threshold curve. The engine must expose `previewPrestige(state)` and `applyPrestige(state)` where the latter consumes the preview result rather than duplicating the formula.
-
-Prestige should feel worthwhile periodically, not every few minutes. Permanent points accelerate early/mid-game while preserving late-game progression.
-
-## Pacing targets (tune with simulations)
-
-- first purchase: tens of seconds, not minutes;
-- first GPU-class automation: first short session;
-- first ASIC: early meaningful milestone;
-- first industrial site: later session/idle return;
-- first prestige: after player has learned market/power/cooling;
-- post-prestige rebuild: materially faster than first run.
-
-Do not lock these as hard timings until automated economy simulations show sane progression.
-
-## Event philosophy
-
-Events create temporary optimization opportunities, not random game-over punishment.
-
-- Positive events: clear benefit and duration.
-- Negative events: reduced efficiency/price, never delete assets.
-- Rare events: exciting enough to notice, not mandatory for progression.
-
-## Number feedback
-
-Early game can display exact-ish values. Mid/late game defaults to compact suffix/scientific formatting. Internally retain stable numeric precision separate from display formatting.
+Pacing/formulas/simulation evidence are governed by ECONOMY_BALANCE; detailed acceptance is in FEATURES.

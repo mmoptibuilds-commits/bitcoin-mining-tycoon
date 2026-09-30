@@ -1,24 +1,8 @@
 ---
-trigger: glob
-globs: "**/*.kt, **/*.xml"
-description: Enforce the project's human-designed Android visual language and reject generic AI-looking UI.
+trigger: always_on
+description: Facility-first native graphite/copper game design.
 ---
 
-# No AI-slop UI
+# ui-no-ai-slop
 
-Never introduce:
-
-- purple/blue gradients;
-- glassmorphism/frosted card stacks;
-- giant rounded-card soup;
-- glowing blobs/orbs;
-- generated/stock crypto illustrations or 3D coins;
-- emoji used as interface icons;
-- meaningless decorative charts;
-- oversized hero marketing layouts;
-- arbitrary pill labels everywhere;
-- excessive shadows and animation.
-
-Use the design tokens/components in `docs/DESIGN_SYSTEM.md`. Prefer graphite surfaces, restrained copper/amber accent, thin borders, 8–12dp radii, clear hierarchy, dense useful data and original Compose Canvas/vector motifs.
-
-Do not call image generation for production app imagery.
+Read DESIGN_SYSTEM, UX_SPEC and APP_IDENTITY for visual work. Facility home, readable type, restrained copper, consistent original vector/Canvas icons/scenes. No generated/stock crypto artwork, Android robot placeholders, emoji controls, gradients/glass card walls, glow blobs, fake charts or console jargon. State-driven bounded tap particles are allowed; no ambient glitter. 48dp targets/font1.5/TalkBack/insets/reduced motion. Pause hidden animations; gameplay output is independent.

@@ -1,17 +1,8 @@
 ---
 trigger: always_on
-description: Production Android implementation constraints for Bitcoin Mining Tycoon.
+description: Native Android and preserved upgrade identity.
 ---
 
-# Android production rules
+# android-production
 
-- Native Kotlin + Jetpack Compose only.
-- Stable dependencies only.
-- minSdk 31; current stable compile/target SDK supported by stable toolchain.
-- Single app module by default.
-- No network/backend/ads/IAP/analytics.
-- No INTERNET permission.
-- UI logic separated from engine/persistence.
-- No unbounded per-frame persistence writes.
-- No TODO placeholders in release paths.
-- Every user-visible feature must have applicable tests and on-device verification before completion.
+Keep the existing Kotlin/Compose single-module game, minSdk31 and current working stable toolchain. No network/backend/real crypto/ads/analytics or background mining service. Preserve app package/storage/signing and valid saves. Read AGENTS and relevant product docs; Android Studio emulators/Gradle/ADB are the required native test surface. Physical USB phone is not required. Document actual results; source inspection is not device proof.

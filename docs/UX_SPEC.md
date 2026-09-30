@@ -1,82 +1,37 @@
-# UX Specification
+# UX specification — v1.2
 
-## UX principles
+## Home and navigation
 
-- The player should always know: **what am I producing, how fast, what can I buy next, and why can't I buy something?**
-- The first screen prioritizes action, not explanation.
-- Failures explain how to recover.
-- Destructive operations require confirmation; normal repetitive purchases do not.
+Mine opens automatically after saved state is loaded. It has the facility scene, accessible Mine control, Bitcoin/Cash, earned rate and a deterministic next goal. Keep Hardware and Upgrades as primary secondary destinations, reachable one-handed. Put Stats/Achievements and Settings behind clearly labeled utility affordances; no four equal dashboard tabs. Reuse the existing Navigation 3 setup; change hierarchy rather than replacing the navigation library.
 
-## Mine screen hierarchy
+The first-machine purchase must be reachable from the first session before owning hardware. Early zero passive speed can be omitted; mining/sell amounts must remain visible. Explain 'Bitcoin is what you mine; Cash buys machines' once in context. Show simulated sell proceeds before action. Hardware rows use normal names and clear buying effects; technical explanations are expandable.
 
-1. BTC balance and USD balance.
-2. Simulated BTC price/trend and quick sell.
-3. Hashrate + BTC/sec.
-4. Primary MINE control.
-5. Power / heat / efficiency status.
-6. Active event/boost.
-7. Next meaningful unlock or recommendation (deterministic, not AI-generated).
+## Disclosure conditions
 
-## Hardware screen
+Derive available systems from owned assets, production, prerequisites and saved milestone/teaching flags. Power/cooling appears before efficiency loss becomes a confusing stall. Automation unlock shows its setting. Prestige preview remains discoverable before eligibility with a concrete requirement. New daily reward appears after first machine; retain claimed legacy rewards and eligibility. Returning users get a short update hint, not a compulsory tutorial replay.
 
-- Group by tier/unlock progression.
-- Each row/card: name, owned, production, cost, power/heat, affordance.
-- Locked items explain unlock requirement.
-- Bulk selector remains sticky or easily reachable.
-- Disabled purchase explains insufficient USD/power if needed.
+Only nearby meaningful locked upgrades/tiers need prominence; reveal enough future progression to motivate. Do not hide controls that fix current low output. Next-goal suggestions are local deterministic rules and accurately name the remedy.
 
-## Upgrades screen
+## Destination behavior
 
-Segmented into focused operational tracks:
-- Power Grid Infrastructure (10 progressive stages from House Outlet to Dyson Network);
-- Thermal Cooling Infrastructure (7 progressive stages from Desk Fan to Quantum Thermal);
-- Hardware Family & Global Upgrades;
-- Automation & Market mechanics;
-- Satoshi Prestige Portal entry (navigates to full-screen Satoshi Tree destination).
+- Hardware: grouped tiers, owned count, effective benefit, price and sticky/reachable x1/x10/x25/MAX selector. Failed buy explains cash shortfall; power deficit is a warning with remedy, not a contradictory hard gate.
+- Upgrades: Tapping / Compute / Infrastructure / Automation; available/purchased/locked state, prerequisites and effect. Power/cooling ordered stages live here; Satoshi tree has its own small permanent destination.
+- Market: compact Sell on home, expanded price/chart/auto-sell controls when useful. No exchange-terminal wall.
+- Stats: meaningful current/lifetime summary; collapsible detailed stats and achievements; mark new attribution coverage on legacy saves.
+- Settings/About: sound, haptics, reduced motion, battery-friendly animation, number format, version/build/changelog, simulation explanation and reset.
 
-Clearly distinguish available, purchased, locked, and permanent states. Never show dozens of equal-weight cards without grouping.
+## Feedback and modals
 
-## Stats screen
+Purchase immediately changes ownership/production/facility; one short confirmation, no toast per tick. Tap shows readable gain and mechanical response. Invalid action gives a compact reason without mutating state. Events/achievements are non-blocking; windfall targets stay reachable.
 
-Prioritize meaningful summary. Use disclosure/sections for long stats instead of one enormous wall.
+Offline return shows duration and actual earnings once. Prestige preview shows exact points, starting bonuses, lost assets and retained data; cancel is harmless. Reset clearly distinguishes a new game from prestige. Confirmations prevent double action, respect back/dismiss and survive background/recreation safely.
 
-## Feedback patterns
+## Native behavior
 
-- Purchase: immediate visual state + short sound/haptic.
-- Invalid purchase: no destructive toast spam; brief inline/snackbar explanation.
-- Achievement: non-blocking banner.
-- Event: banner with timer and effect.
-- Prestige: full confirmation dialog/sheet with exact reset/preserve list.
-- Offline return: summary sheet once, idempotent collection.
+Portrait, safe system/cutout insets, no clipped bottom controls, predictable back/predictive back, no duplicate root stacks. Preserve relevant list position and selected bulk mode when visiting destinations. Startup loads the save before permitting economic actions; coherent system splash/loading state, no fake delay or flashing template theme.
 
-## First-run UX
+Font scale 1.5 remains usable on compact/tall phones. TalkBack describes actions and important states; counter changes do not announce continuously. Sound/haptics unavailable on an emulator/device is a safe no-op. Reduced motion retains all essential feedback.
 
-No more than 30–45 seconds of forced teaching. Prefer coach marks that appear when a feature first unlocks. Persist each coach mark so it does not repeat.
+## Explicit edge states
 
-## Accessibility
-
-- 48dp minimum target.
-- Screen reader labels describe actions (`Sell 50 percent of BTC`) not icon shapes.
-- Changing values should not continuously spam accessibility announcements.
-- Important event/achievement announcements use appropriate live-region behavior sparingly.
-- At 1.5 font scale, primary actions and critical values remain usable without clipping.
-
-## Back behavior
-
-- Root tabs do not create endless duplicate back-stack entries.
-- Back from secondary/settings returns predictably.
-- Back from root follows Android conventions; do not trap the user.
-
-## Error/edge states to design explicitly
-
-- new game/zero balance;
-- no affordable miner;
-- power deficit;
-- high heat;
-- market crash;
-- no active event;
-- prestige unavailable;
-- daily reward already claimed;
-- offline duration zero;
-- corrupted save recovered;
-- sound/haptic unavailable on device.
+Zero BTC/cash, first sale dust, no affordable hardware, locked tier, power deficit, high heat, crash/pump, offline zero/>12h, claimed daily reward, prestige unavailable, extremely large values, recovered/unsupported save, interrupted migration, disabled audio/haptics and app update preserving data. Journeys cover these states and Android identity surfaces.

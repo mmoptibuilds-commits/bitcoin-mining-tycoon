@@ -1,38 +1,8 @@
 ---
 name: feature-cycle
-description: Implements or verifies one Bitcoin Mining Tycoon feature end-to-end and blocks progression until logic, persistence, UI, UX, accessibility, device behavior, failure cases, and regressions pass.
+description: Implements or verifies a v1.2 gameplay milestone with relevant tests, save safety and emulator evidence.
 ---
 
-# Feature Cycle
+# feature-cycle
 
-## Inputs
-
-Feature ID/name and relevant requirements from `docs/FEATURES.md`.
-
-## Cycle
-
-1. Read requirements and identify state/formula/persistence/UI surfaces affected.
-2. Define objective acceptance checks.
-3. Add or update pure unit tests first where logic exists.
-4. Implement the smallest coherent production slice.
-5. Run targeted unit tests.
-6. Run persistence/migration tests if the save model changed.
-7. Add/run Compose interaction tests if user-visible.
-8. Analyze changed Kotlin with Android Studio tooling when available.
-9. Render/inspect previews and semantics for changed UI.
-10. Build/deploy/run with Android CLI.
-11. Run/update the relevant Journey.
-12. Inspect screenshot and layout tree for visual/UX/accessibility defects.
-13. Exercise at least one boundary/failure/lifecycle case.
-14. Invoke an independent verifier subagent when material.
-15. Fix all defects found.
-16. Run full existing regression suite.
-17. Record the feature complete only after green results.
-
-## Never accept
-
-- “Build succeeds” as sufficient verification.
-- Screenshot-only verification for logic.
-- Unit-only verification for interaction UX.
-- deleting a failing valid test.
-- moving on while a known defect remains in the current feature.
+Read AGENTS, FEATURES, PROJECT_PLAN and relevant canonical docs. Inspect current source/ledger; preserve completed work and user edits. Define the current milestone's player outcome and migration risk. Reproduce changed logic/defects with meaningful tests, implement focused changes, then run targeted logic/storage/Compose checks. Inspect native screenshot/semantics and execute the relevant emulator journey plus a boundary/lifecycle case. Run affected regressions; use independent read-only review for material risks where supported. Fix root causes without weakening tests. Record actual commit/commands/results/fixtures/emulator and remaining blockers in CURRENT_STATE, then commit/push v1.2. Do not mark unavailable checks complete or run unrelated full suites repeatedly as ceremony. Docs-only changes use links/consistency/diff checks. No phone USB requirement or concurrent writers.

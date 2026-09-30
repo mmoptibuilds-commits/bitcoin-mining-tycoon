@@ -1,3 +1,5 @@
-# Journey: First Session
+# Journey: First session and progressive teaching
 
-Start from a cleared app. Verify the disclaimer/onboarding is readable and skippable. Finish onboarding, tap MINE repeatedly, observe production feedback, buy the first affordable automated hardware, wait briefly, and confirm BTC increases without tapping. Confirm no clipping, disabled controls explain themselves, and bottom navigation remains reachable.
+Use a dedicated clean emulator profile, not the legacy preservation profile. Launch, inspect custom splash and concise simulation notice, then Mine→observe Bitcoin→sell→buy first machine. Verify proceeds/cash, passive gain without taps and visible scene change. Hardware is reachable before ownership; no crypto glossary needed. Advanced systems disclose without hiding needed remedies. Repeat with migrated early/late fixture and verify retained onboarding/assets reveal relevant systems.
+
+Record exact commit, emulator/API, fixture, actions and expected/actual values, screenshots/logs and pass/fail/blocker. Test helpers stay debug/test-only and are absent from release. Natural-language descriptions are specifications, not proof these flows ran.

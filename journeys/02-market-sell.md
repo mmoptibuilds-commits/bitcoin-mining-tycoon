@@ -1,3 +1,5 @@
-# Journey: Market and Sell
+# Journey: Market, selling and automation
 
-Use a test/debug state with BTC available. Open Mine, inspect the fictional BTC price and trend, sell 10%, verify BTC decreases and USD increases by the displayed simulated value, then sell 50% and MAX. Verify controls never sell more than owned, price remains positive, and feedback is clear without implying real trading.
+Use a BTC-funded test profile. Verify Sell10/50/MAX previews match actual Bitcoin/cash changes; zero/dust/huge balances never oversell. Expand real game history/positive local price and concise trend. Buy automation, set threshold, verify actual rule behavior and persistence. After prestige confirm locked auto-sell is disabled. No real exchange claims.
+
+Record exact commit, emulator/API, fixture, actions and expected/actual values, screenshots/logs and pass/fail/blocker. Test helpers stay debug/test-only and are absent from release. Natural-language descriptions are specifications, not proof these flows ran.

@@ -1,14 +1,8 @@
 ---
 name: product-copy
-description: Writes concise human game copy for onboarding, achievements, events, errors, settings and prestige without generic AI marketing language or crypto-bro hype.
+description: Writes clear v1.2 game-native labels, teaching, rewards, errors and About information.
 ---
 
-# Product Copy
+# product-copy
 
-- Short, concrete, game-native wording.
-- No “revolutionize”, “unlock the power”, “seamless”, “next-level”, “journey begins”, or fake inspirational hype.
-- No claims of real profit/mining/trading.
-- Buttons use actions: Mine, Buy, Sell 50%, Prestige, Collect, Reset.
-- Error copy says what happened and what the player can do.
-- Achievement/event copy may have personality but should stay compact.
-- Keep simulation disclaimer accurate and calm.
+Read UX_SPEC/APP_IDENTITY and feature context. Use Bitcoin, Cash, Mining speed, Power and Cooling; technical units/details are supporting. Teach the loop through concise action cues, no crypto glossary or console jargon. Buttons say Mine, Buy, Sell50%, Collect, Prestige, Reset. Explain why an action is locked/unaffordable and how to proceed. Keep achievement/event personality compact. Describe fictional simulation honestly; no profit/WebSocket/real exchange claims. Stats on migrated saves label coverage accurately; About uses actual app version/build. Check font1.5 and TalkBack labels in context.

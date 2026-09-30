@@ -1,3 +1,5 @@
-# Journey: Settings and Accessibility
+# Journey: Settings, accessibility and native navigation
 
-Open Settings, disable sound and haptics, enable reduced motion, change number formatting, leave/relaunch and verify persistence. Test the main Mine/Hardware flow with font scale 1.5 and inspect TalkBack/semantics order. Verify all critical controls remain reachable and descriptive.
+Disable sound/haptics independently; enable reduced motion/battery-friendly animation/change number format. Relaunch and verify settings. Check font1.5 compact/tall, TalkBack action labels/order,48dp targets/insets/back, large-number layouts and no continuous counter announcements. Mine/hardware/upgrade/modals remain usable. About shows actual version/build/changelog. Reset cancel preserves data; confirm resets only dedicated test profile and keeps app usable.
+
+Record exact commit, emulator/API, fixture, actions and expected/actual values, screenshots/logs and pass/fail/blocker. Test helpers stay debug/test-only and are absent from release. Natural-language descriptions are specifications, not proof these flows ran.
