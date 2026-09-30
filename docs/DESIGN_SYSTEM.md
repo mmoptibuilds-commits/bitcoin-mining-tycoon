@@ -1,91 +1,31 @@
-# Visual Design System — Industrial, Human, Non-AI-Slop
+# Design system — graphite/copper mining game
 
 ## Direction
 
-A compact industrial control-panel aesthetic: dark graphite surfaces, warm copper/amber accent, crisp numeric hierarchy, subtle mechanical motifs, and restrained motion. It should feel like a purpose-built mining operations console, not a generic SaaS dashboard or crypto exchange.
+A tactile, readable mining game whose main screen is a growing facility. Graphite provides depth; copper highlights actions, machines and milestones. Use normal readable typography for titles, explanations and controls; tabular/monospace only for suitable numerical telemetry. The old operations-console appearance is superseded.
 
-## Explicitly banned aesthetics
+## Composition
 
-- purple-to-blue gradients;
-- glassmorphism/frosted cards everywhere;
-- neon cyan/purple glow;
-- giant 24–32dp rounded rectangles for every container;
-- decorative floating orbs/blobs;
-- 3D Bitcoin coins, server-rack renders, robots, space art or other generated imagery;
-- random sparkles/particles used as decoration;
-- emoji as production icons;
-- huge marketing-style hero headline on a game screen;
-- fake charts that do not encode real in-game data;
-- excessive drop shadows;
-- arbitrary pills for normal text;
-- five accent colors competing for attention.
+Facility scene is the visual anchor. Balances and production have clear hierarchy; Mine and the next goal are obvious. Market/infrastructure appear as compact expandable tools. Use open sections, dividers and purposeful containers rather than equal-weight cards around everything. Hardware rows emphasize ownership, production and buy action. No fake graphs; a market chart encodes actual game history.
 
-## Imagery policy
+Use reusable color, spacing, typography, shape and motion tokens. Start from current AppColors/AppTypography; adjust coherently instead of adding a second theme. Graphite background/charcoal surfaces, copper/amber primary, restrained green/warning/red statuses paired with text/icons. 8–12dp container/button corners where appropriate; no giant rounded-card wall. Copper need not decorate every label.
 
-Do not call image-generation tools for the app UI. Build visuals from:
+## Illustrations and icons
 
-- Compose Canvas;
-- VectorDrawable;
-- simple original geometric line icons;
-- Material Symbols only where they fit semantically;
-- typography and data visualization generated from real game state.
+Original Canvas/vector geometric scenes and a coherent small line-icon family. Fans, boards, cables, racks, buildings, energy sources and orbital structures must be recognisable without photorealism. Render representative counts, not one object per owned unit. App identity is specified in APP_IDENTITY.
 
-The mining rig illustration, if present, should be a simple programmatic schematic (fan circles, rack grid, activity bars), not a bitmap illustration.
+No generated or stock crypto imagery, Android template robot, 3D floating coins, emoji-as-controls, purple/blue gradients, glassmorphism stacks, ambient glow blobs, random decorative particles or irrelevant hero marketing copy. Quantum/Dyson scenes are fictional game motifs, not technical claims.
 
-## Color
+## Motion and feedback
 
-Create accessible tokens rather than hardcoding random colors. Suggested character:
+Tap press/release ~80–140ms, number delta ~300–500ms, scene purchase/milestone transition ~200–350ms. Tune by emulator inspection. Bound simultaneous effects (initial cap 24 particles); coalesce rapid taps rather than allocating unbounded animations. Shockwave and machine response explain an action. No continuous ambient flourish just to fill space.
 
-- background: near-black graphite, not absolute black everywhere;
-- surface: slightly lifted charcoal;
-- primary accent: warm copper/amber;
-- positive: muted green;
-- warning: amber/yellow distinct from primary by luminance/shape/text;
-- destructive: restrained red;
-- text: high/medium/disabled neutrals.
+Reduced motion disables particles, number flights, parallax and continuous fan/scene animation; keep static scene change, selected state and a readable delta. Battery-friendly animation reduces optional activity without changing production. Pause visual loops when backgrounded or scene hidden.
 
-Do not convey market up/down or thermal warnings by color alone; pair with icon/label/sign.
+## Accessibility and content
 
-## Shape
+48dp hit areas; font scale 1.0 and 1.5; icons always have meaningful semantics when interactive. No color-only warnings. Live counters do not spam TalkBack. Avoid width shifts as balances change. Use short labels: Mine, Sell, Buy, Mining speed, Power, Cooling, Collect. Secondary technical detail can use H/s/kW/°C.
 
-- Cards/panels: 8–12dp corner radius.
-- Buttons: 8–12dp radius; primary MINE control may be distinctive but not bubbly.
-- Thin borders/dividers are preferred over giant shadows.
+## Review states
 
-## Typography
-
-Use Android-system-friendly fonts unless a bundled open font is genuinely needed. Distinguish:
-
-- display number;
-- section title;
-- body;
-- label;
-- dense numeric/technical label.
-
-Use tabular figures for frequently changing numeric fields where available. Monospace may be used sparingly for technical values, not the entire interface.
-
-## Layout
-
-- Dense but breathable.
-- Primary data above the fold: BTC, USD, price, hashrate, production.
-- Mine control is dominant but not half the screen.
-- Power/heat/efficiency are secondary operational data.
-- Bottom nav remains stable.
-- Avoid nested cards inside cards unless hierarchy requires it.
-
-## Motion
-
-Motion explains state changes:
-
-- tap compression;
-- value delta rise/fade;
-- purchase confirmation;
-- achievement reveal;
-- prestige transition;
-- graph movement.
-
-No ambient meaningless movement. Reduced Motion removes number flights, parallax, continuous fan flourish etc. Essential state changes remain visible.
-
-## App icon
-
-Original vector mark combining a simplified ASIC/rack grid with a mining/hash motif. Avoid copying official Bitcoin artwork as the whole icon and avoid generated images.
+New/empty, early/mid/late, migrated, locked/unaffordable, deficit/heat, active event, daily claimed, offline return, prestige confirm, reduced motion and huge numbers. Inspect screenshots plus real interactions. Historic v1 screenshots are evidence of prior behavior, not a layout to reproduce.

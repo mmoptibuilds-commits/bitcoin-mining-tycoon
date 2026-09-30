@@ -1,16 +1,8 @@
 ---
-trigger: glob
-globs: "**/engine/**/*.kt, **/model/**/*.kt, **/content/**/*.kt, **/data/**/*.kt"
-description: Protect idle-game economy precision, determinism and persistence invariants.
+trigger: always_on
+description: Deterministic economy, migration and transaction invariants.
 ---
 
-# Economy/state invariants
+# economy-safety
 
-- Never allow NaN/Infinity/negative balances from legal actions.
-- Centralize formulas/constants.
-- Use stable decimal/big-number handling for compounding quantities.
-- Bulk/MAX must be bounded and performant.
-- Foreground time uses monotonic clock; offline wall time clamps to [0, 12h].
-- Prestige preview and apply share one calculation source.
-- Save changes are versioned/migrated.
-- RNG-dependent systems persist enough RNG state to remain reproducible/debuggable.
+Read ECONOMY_BALANCE and SAVE_COMPATIBILITY for engine/model/content/data changes. Centralize balance values; use bounded decimal economy magnitudes, bounded MAX, stable IDs, versioned migration and serial critical transactions. Test legacy saves, RNG/time equivalence, repeated claims, prestige cumulative accounting, fractional time, event expiry and huge values. Offline max43,200 seconds. No assets lost to tuning or silent valid-save fallback.

@@ -1,102 +1,35 @@
-# Android Architecture
+# Existing architecture and v1.2 boundaries
 
-## Stack
+## Actual project
 
-- Kotlin.
-- Single `app` module.
-- Jetpack Compose + stable Compose BOM.
-- Material 3 primitives with custom tokens/components.
-- Navigation 3 stable is permitted if navigation complexity warrants it; for four persistent root tabs prefer the simplest stable state/back-stack implementation that preserves tab state and predictive-back correctness.
-- Lifecycle/ViewModel + StateFlow.
-- Coroutines.
-- DataStore for atomic local persistence.
-- Kotlin serialization for versioned save payload.
-- JUnit + Compose testing + UI Automator/Journeys for higher-level flows.
+`app/src/main/java/com/antigravity/bitcoinminingtycoon/` contains immutable model/GameState, data/GameSave + SaveDataSource + GameRepository, data/migrations/SaveMigrations, content definitions, pure engine objects, platform clocks/audio, GameViewModel and Compose screens/navigation/theme. Keep this arrangement; add focused units rather than an unrelated rewrite.
 
-## Suggested packages
+Stack: Kotlin, Compose/Material 3, Navigation 3, StateFlow/ViewModel, coroutines, DataStore and Kotlin serialization; one app module and manual dependency construction. Current build uses minSdk 31/compileSdk 36/targetSdk 36/JDK 17, AGP 9.0.1 and Compose BOM 2026.03.01. These are observed baseline values, not claims about the latest releases.
 
-```text
-com.<owner>.bitcoinminingtycoon
-├── MainActivity.kt
-├── app/
-│   ├── App.kt
-│   └── AppState.kt
-├── engine/
-│   ├── GameEngine.kt
-│   ├── EconomyEngine.kt
-│   ├── MarketEngine.kt
-│   ├── PowerEngine.kt
-│   ├── ThermalEngine.kt
-│   ├── PrestigeEngine.kt
-│   ├── EventEngine.kt
-│   ├── AchievementEngine.kt
-│   └── OfflineEngine.kt
-├── model/
-├── content/
-│   ├── Miners.kt
-│   ├── Upgrades.kt
-│   ├── Achievements.kt
-│   ├── Events.kt
-│   └── PrestigeNodes.kt
-├── data/
-│   ├── GameRepository.kt
-│   ├── SaveDataSource.kt
-│   ├── GameSave.kt
-│   └── migrations/
-├── ui/
-│   ├── navigation/
-│   ├── screens/
-│   ├── components/
-│   ├── theme/
-│   └── previews/
-├── viewmodel/
-├── platform/
-│   ├── ClockProvider.kt
-│   ├── Haptics.kt
-│   └── SoundPlayer.kt
-└── util/
-    ├── GameNumber.kt
-    ├── NumberFormatter.kt
-    └── ResultExt.kt
-```
+## Boundaries
 
-## State ownership
+- `content/BalanceConfig.kt`: centralized tuneable defaults/curves; stable content definitions reference it. No UI constants controlling money.
+- `engine/`: deterministic economy, purchases, market, event/achievement, power/thermal, offline and prestige transitions. Preserve existing APIs where possible; test changed behavior.
+- `model/`: persistent game facts and bounded statistics/discovery; serialize monetary magnitudes as decimal strings.
+- `data/`: migration, schema DTO/serializer, storage and durable commit ordering; no UI concepts.
+- `viewmodel/`: serial intents/ticker/lifecycle handling and derived presentation state. Derive visible systems, current facility stage and next goal from authoritative state, not duplicate balances.
+- `ui/facility/`: state-derived scene model/renderer, capped visual density and deterministic geometry. Animations never produce gameplay output.
+- `platform/Haptics.kt`: capability-aware haptic interface/implementation; settings/rate limiting applied consistently; injectable fake for verification.
 
-One immutable `GameState` is the gameplay source of truth. UI observes a presentation state derived by the ViewModel. User intents are sent to the ViewModel/repository/engine; composables do not mutate persistent state directly.
+## Existing interfaces to reuse
 
-## Game loop
+`GameEngine.tick(state, deltaSeconds, wallMillis, rng)` and `performManualTap(state)`; `EconomyEngine.calculateManualTapOutput`, `calculateEffectiveHashrate`, `calculateMinedBtc`; `PrestigeEngine.previewPrestige/applyPrestige`; `OfflineEngine.calculateOfflineProgress/applyOfflineReward`; `SaveMigrations.migrate(rawJson)`; `GameSave.fromGameState/toGameState`; `SaveDataSource.update`; `GameRepository.initialize/saveImmediate/flush`; `ClockProvider.monotonicNanos/wallMillis`.
 
-A coroutine ticker emits delta time while foregrounded. The engine applies deterministic `tick(state, delta, clock, rng)` logic and returns new state. Coalesce persistence so a 10Hz ticker does not write storage 10 times/sec.
-
-Critical transactions (purchase, sell, prestige, reward claim, settings change) schedule/perform an immediate persisted save.
-
-## Clock abstraction
-
-- `monotonicNow()` for foreground deltas.
-- `wallNow()` only for offline/daily calculations.
-- tests inject fake clock.
+Inspect actual signatures before extending them. Do not add a parallel simulator economy; deterministic simulations drive the real engine APIs. New pure helpers should have narrow state inputs and testable outputs. UI intents must go through one serialized action path so tick/purchase/claim/flush cannot race and overwrite committed progress.
 
 ## Persistence
 
-Store a versioned serialized payload in DataStore. Include:
+Keep existing DataStore name/location and package. Increment save schema for newly persisted fields; default and migrate through SAVE_COMPATIBILITY. Derive scene state where possible; store only discovery/teaching facts that cannot be reconstructed. Distinguish app version, schema version and balance rules version. Bound market/power history and effect queues.
 
-- `schemaVersion`;
-- balances;
-- hardware ownership;
-- upgrades;
-- achievements;
-- market/RNG state;
-- prestige;
-- stats;
-- settings;
-- timestamps.
+## Lifecycle and performance
 
-Migrations are pure transformations from old payload → current payload. If an optional field is absent, default safely. If the payload is unrecoverably corrupted, preserve a diagnostic marker and fall back to a safe new state rather than crash-looping.
+Foreground economy delta is monotonic; visual FPS is independent. Coalesce passive saves and flush critical actions/background state. Stop visual loops when backgrounded; calculate offline rewards once on resume using defensive wall time and actual event expiry. Preserve fractional playtime/energy rather than truncating every small tick. Sound resources are released correctly.
 
-## No backend
+## Dependencies and privacy
 
-No Retrofit/OkHttp/Firebase/Supabase. No network permission.
-
-## Dependency rule
-
-Prefer AndroidX/Kotlin standard libraries. Every third-party dependency must justify itself in `docs/DECISIONS.md` and have an active maintenance/license check.
+No network stack/backend/analytics/ads/auth/wallet. No unnecessary permissions; Android backup remains disabled. Keep stable existing libraries unless evidence justifies a scoped change recorded in DECISIONS. Do not import web architecture/CSS/GSAP/React guidance into Compose. No Hilt/Koin requirement from a general testing reference.

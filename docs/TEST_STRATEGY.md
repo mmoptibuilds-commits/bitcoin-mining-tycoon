@@ -1,122 +1,75 @@
-# Test Strategy — Production Gate
+# Test strategy and acceptance matrix — v1.2
 
-## Rule zero
+Tests prove player outcomes and save preservation, not implementation trivia. Preparation was documentation-only; actual Android results belong to M0–M7. Every result identifies command, commit, fixture/seed and emulator/API when relevant.
 
-Testing happens **after every implemented feature**, not only at the end. The `feature-cycle` skill defines the mandatory per-feature loop.
+## Commands
 
-## Layers
+PowerShell from repo root, single emulator running for connected tests:
 
-### 1. Pure JVM unit tests — majority
+```powershell
+.\gradlew.bat testDebugUnitTest
+.\gradlew.bat lintDebug
+.\gradlew.bat lintRelease
+.\gradlew.bat assembleDebug
+.\gradlew.bat connectedDebugAndroidTest
+.\gradlew.bat assembleRelease
+```
 
-Cover every game engine, formula, formatter, migration and state transition.
-Targets include:
+For targeted tests use the actual existing class, e.g. `testDebugUnitTest --tests '*SaveMigrationsTest'`. On Linux/macOS use `./gradlew`. Discover custom simulation tasks with `tasks --all`; do not invent a registered task. Baseline simulations can be JUnit tests selected by class. Install minified release using the SDK's ADB with the correct serial if multiple emulators exist; inspect logs and perform release journeys after debug instrumentation, so the final smoke actually exercises the release artifact.
 
-- economy;
-- bulk pricing/MAX calculation;
-- market state machine;
-- power/heat factors;
-- event stacking/expiry;
-- achievements;
-- prestige preview/apply equivalence;
-- offline time clamp;
-- daily reward idempotency;
-- save migration;
-- number formatting;
-- ViewModel intent handling where practical.
+## Evidence layers
 
-### 2. Repository/persistence tests
+- JVM: pure economy/content/precision/clock/RNG/prestige/state invariants; meaningful simulations through real engine.
+- Storage: old schema fixtures, preserving fields, idempotent migration, unsupported/corrupt recovery, durability and action/tick ordering.
+- Compose: real action/state assertions, not just view existence. Test first sale/buy, bulk, unlocks, settings, rewards and modal cancellation.
+- Visual/semantics: early/mid/late/migrated/huge-number states, compact/tall, 1.0/1.5 font and reduced motion. Inspect screenshots and hierarchy, not compile alone.
+- Emulator: API31 minimum + API36 current target class, sequentially. Native navigation/insets/lifecycle/App Info/launcher/recents and APK update.
+- Release: actual minified APK install/launch/restore/upgrade, manifest/resources/serialization/R8, icon/splash and critical journeys.
 
-- serialize → persist → load round trip;
-- missing/default fields;
-- migrations;
-- malformed payload recovery;
-- transaction save after prestige/purchase;
-- lifecycle save behavior.
+## Acceptance matrix
 
-### 3. Compose behavior tests
+| Feature | Required proof |
+|---|---|
+| F01 teaching/discovery | clean/migrated Compose flow; persists cues; no blocked remedy |
+| F02 tapping/feedback | deterministic output/critical RNG; settings/reduced motion; rapid-tap emulator stress |
+| F03 passive | tick-rate equivalence; action/tick race; no animation-dependent output |
+| F04 balances | decimal boundaries/dust/huge formatting; no negative legal state |
+| F05 market/sell | sell10/50/MAX/zero; local price floor; auto-sell prereq/reset/settings |
+| F06 hardware | 20 stable IDs; unlock/benefit; legacy owned output and UI |
+| F07 bulk | exact geometric cost/count; huge MAX bounded; double-tap atomicity |
+| F08 power | stage benefit/demand deficit/remedy; soft constraint not permanent stall |
+| F09 cooling | thermal threshold edges; stage usefulness; huge load safety |
+| F10 upgrades | 50–60 useful effects, every reference/prereq valid, legacy IDs and no duplicate grants |
+| F11 achievements | one-time persisted unlock/reward and browsable accessible progress |
+| F12 events | stacking/expiry; windfall collection once; offline expiry; release UI timers |
+| F13 prestige | preview=apply, zero/cancel/duplicate/huge/legacy points and reset list |
+| F14 Satoshi tree | dependency DAG, atomic points, saved ownership and faster rebuild |
+| F15 offline | 0/rollback/59s/60s/11h59m/12h/>12h/extremes; repeat collection/process death |
+| F16 daily | first-machine disclosure; 20h boundary/rollback/repeated claim/streak preserved; balance assist |
+| F17 stats | source attribution, fractional time/energy, bounded histories; legacy coverage; huge values |
+| F18 saves | v1→v2 fields, repeat migration, interruptions, raw recovery/future schema, signed update |
+| F19 settings/reset | persists all options; cancel/confirm; usable post-reset, About actual build |
+| F20 sound/haptics | fake/capability API checks; independent disabling/rate limits/resources; no tactile claim |
+| F21 accessibility/native | compact/tall1.5 font, TalkBack actions, targets, insets, predictive back |
+| F22 facility | all tier mappings/count caps/reset/discovery; screenshots every stage; paused animations |
+| F23 identity | launcher/round/themed/App Info/recents/splash; no default robot/resources |
+| F24 versions/package | branch preservation, app/code/schema separation, matching certificate update and APK record |
+| F25 release/repo | full relevant suites, minified release flows, manifest/performance/no placeholders |
 
-Test what users can do:
+## Economy evidence
 
-- bottom tabs;
-- MINE;
-- sell buttons;
-- hardware purchase/bulk modes;
-- upgrades;
-- dialogs/sheets;
-- prestige confirmation;
-- settings;
-- offline reward collection;
-- achievement/event UI.
+Use ECONOMY_BALANCE reference + alternate policies, publish seeds/config/purchase trace. Fixed-normal-price first run targets 25–35 minutes without rewards/luck, passive exceeds manual by minute5, second run≥25% faster. Actual market seeds report variance honestly. Run legacy and 12h idle cases; no dynamic sleep, UI-only 'balance review' or changed policy to camouflage regression.
 
-Avoid brittle assertions on implementation details.
+## Adversarial cases
 
-### 4. Screenshot/visual verification
+Exact price and one unit below; sell fractional dust/zero; MAX at huge magnitude; modifiers combined/event expiry mid-tick; upgrade during event; already/unaffordable node; background during buy/claim/prestige; kill immediately after confirmed transaction; repeated offline/daily modal; rapid navigation; overwritten future save; backward/extreme wall clocks; loading state economic taps; subsecond runtime; reduced motion plus critical/milestone; huge counts; unavailable audio/haptics; release serializer shrinking.
 
-Use Compose preview rendering and/or screenshot testing for:
+Use real process stop/relaunch without clearing data; distinguish background/task removal/force-stop. All tests that manipulate app data use a dedicated emulator profile. An actual preservation journey updates the package, never clears it.
 
-- each primary screen;
-- zero/normal/late-game states;
-- locked/disabled/alert states;
-- font scale 1.5;
-- reduced motion where visual state differs;
-- compact and tall phone dimensions.
+## Performance evidence
 
-Visual review checks hierarchy, clipping, overlap, spacing, contrast and anti-AI-slop design rules.
+Bound histories, visual objects and effects; avoid per-tap unbounded jobs and per-tick disk writes. Inspect emulator frame/allocation/CPU traces when rapid taps or scenes cause jank. Production continues correctly under slow UI. Emulator performance depends on host; do not turn it into an unsupported real-phone benchmark. Background app has no active mining/visual service.
 
-### 5. Device/emulator tests
+## Reporting
 
-Run the app on API 31/32 class emulator and a current API 37/current device when possible.
-Inspect screen and layout tree. Verify system insets, keyboard if any, process lifecycle, app restore and performance.
-
-### 6. Journeys / E2E
-
-Natural-language Journeys cover critical player outcomes. See `journeys/`.
-
-### 7. Release tests
-
-- `test`;
-- instrumented/Compose UI suite;
-- lint;
-- release assemble/bundle;
-- R8 output sanity;
-- install/launch release candidate;
-- cold/warm startup sanity;
-- repeated tap stress;
-- 12h offline simulation;
-- process-kill/restore;
-- no network permission.
-
-## Feature acceptance gate
-
-For each feature, record:
-
-- tests added;
-- targeted tests passed;
-- UI/preview reviewed if applicable;
-- on-device Journey/manual flow passed;
-- boundary/failure case passed;
-- full regression suite passed.
-
-Do not mark feature complete if any applicable item is missing.
-
-## Bug taxonomy agents must search for
-
-- logic/formula bugs;
-- arithmetic overflow/rounding;
-- concurrency/race issues;
-- double actions;
-- stale Compose state;
-- recomposition/performance issues;
-- persistence/data loss;
-- clock/time anomalies;
-- lifecycle/process death;
-- navigation/back bugs;
-- accessibility/semantics;
-- touch-target/input bugs;
-- clipping/insets/font scale;
-- animation/reduced-motion bugs;
-- audio/haptic lifecycle;
-- UX confusion/missing feedback;
-- balance softlocks/exploits;
-- release/R8-only crashes;
-- policy/privacy/permission issues.
+Each milestone records feature IDs/command output/commit/fixture/emulator/screenshots and remaining checks. Reports/artifacts are ignored by Git; retain concise reviewed summaries. A passed JVM suite does not imply UI/device proof. Blocked checks remain blocked. Test failures are fixed at cause; valid assertions are not deleted or weakened to claim completion.

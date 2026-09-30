@@ -1,93 +1,52 @@
-# AGENTS.md — Bitcoin Mining Tycoon
+# Bitcoin Mining Tycoon — shared agent instructions
 
-This file is always-on project guidance for Antigravity agents.
+## Mission and authority
 
-## Mission
+Implement the approved v1.2 redesign on `v1.2`, preserving the working local engine and existing player saves. This is an existing Android project, not a scaffold/build-pack task. Read `docs/CURRENT_STATE.md`, `docs/PRD.md`, `docs/FEATURES.md`, `docs/PROJECT_PLAN.md` and the documents relevant to the current milestone.
 
-Build and maintain a production-ready native Android game named **Bitcoin Mining Tycoon** according to the documents in `docs/`. Treat those documents as requirements, not inspiration.
+Product rules live in the product docs; implementation order in PROJECT_PLAN; evidence in CURRENT_STATE. If a plan contradicts a requirement, satisfy the requirement and record the ruling in DECISIONS. Do not repeat already answered questions. The user approves the implementation plan once; then complete its authorized milestones without routine permission requests.
 
-## Required stack
+## Stack and invariants
 
-- Kotlin.
-- Jetpack Compose with the current stable Compose BOM.
-- Material 3 as primitives, with a bespoke project design system.
-- Single Android application module unless a second module becomes objectively necessary for release verification.
-- MVVM/UDF-style state ownership with StateFlow.
-- Coroutines.
-- Versioned local persistence using DataStore + Kotlin serialization.
-- Stable dependencies only unless a requirement is impossible without a pre-release artifact and the user explicitly approves it.
-- No DI framework by default. Use constructor injection/manual fakes; do not add Hilt/Koin solely because a generic testing skill recommends DI.
-- minSdk 31; compile/target the newest stable SDK supported by the stable build toolchain, currently expected to be API 37.
+- Kotlin + Jetpack Compose + Material 3 primitives; one app module, ViewModel/StateFlow, coroutines and versioned DataStore/Kotlin serialization.
+- Keep applicationId/namespace `com.antigravity.bitcoinminingtycoon`, save filename/location and signing continuity. Follow SAVE_COMPATIBILITY before any state/content change.
+- minSdk 31; current compile/target SDK 36. Keep the working toolchain unless a verified stable dependency/platform requirement justifies a focused change. Do not infer versions from old docs or upgrade everything automatically.
+- Stable dependencies only. Manual constructor injection; no new DI framework, backend, web wrapper or module split without demonstrated need.
+- UI contains no economy, prestige, migration or clock formulas. Use one centralized source of balance constants.
+- Use bounded decimal helpers for compounding economy values; reject invalid inputs, negative balances, NaN/Infinity and unbounded MAX loops.
+- Foreground production uses monotonic elapsed time, independent of animation FPS. Defensive offline wall time is clamped to 0–43,200 seconds. Persist RNG state and verify determinism across reload.
+- Serialize economic transactions and await durable commits for purchases, sales, reward claims, prestige and settings. Do not claim persistence merely because the screen changed.
+- Migrate valid old saves; never silently replace a valid save to solve a decode issue. Retain unsupported/corrupt payloads locally for recovery before overwriting. New statistics must label unavailable historical attribution.
+- No INTERNET permission, network dependency, ads, analytics, real mining/trading, wallets, accounts, remote configuration or background mining service.
 
-## Architectural invariants
+## Product and visual constraints
 
-1. UI composables never contain economy formulas, market simulation, prestige formulas, save migration logic, or wall-clock calculations.
-2. Game calculations are deterministic when supplied the same state, clock, and RNG seed.
-3. Monetary/game magnitude arithmetic must never emit NaN or Infinity. Use `BigDecimal`/bounded numeric helpers for economy values and explicit formatting helpers.
-4. Runtime progression uses a monotonic clock. Offline progression may use wall clock only through a defensive abstraction that clamps negative time to zero and positive time to 12 hours.
-5. The app must survive process death without losing previously committed purchases/progression.
-6. Every persistent schema change increments a save version and has a migration or safe default.
-7. No network access is required. Do not add `INTERNET` permission.
-8. Do not add analytics, ads, billing, authentication, cryptocurrency wallet/trading/mining libraries, or remote configuration.
-9. No generated AI artwork or stock “crypto” imagery. Use Compose primitives, Canvas, VectorDrawable, typography, iconography, and original geometric motifs.
-10. Keep one clear source of truth for every gameplay constant. No magic balance numbers duplicated across UI files.
+- Beginner-friendly language: Bitcoin, Cash, Mining speed, Power, Cooling. Technical units are supporting information.
+- Mine is the player's facility/home; Hardware and Upgrades are secondary destinations; Stats/Settings are utilities.
+- Preserve all existing systems and 20 hardware tiers; implement the facility stages, 50–60 meaningful upgrades, complete statistics, real haptics, feedback, progressive teaching, icon and launch polish in FEATURES.
+- Read DESIGN_SYSTEM, UX_SPEC, APP_IDENTITY and `.agents/rules/ui-no-ai-slop.md` before visual changes.
+- Original Compose Canvas/VectorDrawable imagery only. No image generation, stock crypto art, emoji controls, generic dashboard card walls or decorative glow. State-driven tap particles are allowed, bounded and disabled by reduced motion.
+- Design zero/locked/unaffordable/purchased/overheated/offline/migrated/huge-value states. 48dp targets, font scale 1.0/1.5, TalkBack, safe insets, predictable back and independent sound/haptics controls.
 
-## Feature completion gate — mandatory after EVERY feature
+## Workflow and verification
 
-Never start the next feature until the current feature passes all applicable checks:
+Use the project `feature-cycle` skill for each gameplay milestone. Relevant local skills: frontend-design, game-balance, product-copy, bug-hunt and release-audit. Ask the harness to load them by name/path; do not assume a skill is a portable slash command. Official Android tools are optional helpers; Gradle, Android Studio and ADB remain valid fallbacks.
 
-1. Write/extend unit tests before or alongside the implementation.
-2. Run targeted unit tests for the affected engine/repository/ViewModel code.
-3. Run static/IDE analysis for changed Kotlin files when Android Studio integration is available.
-4. Run Compose behavior tests for user-visible interactions.
-5. Render or inspect Compose preview for changed screens/components and inspect semantics.
-6. Build and deploy to an emulator/device.
-7. Run the relevant Journey(s) or equivalent on-device flow.
-8. Inspect screenshot/screen output and layout tree for clipping, overlap, incorrect touch targets, broken hierarchy, stale data, inaccessible controls, and visual slop.
-9. Exercise at least one failure/boundary case for the feature.
-10. Re-run the existing regression suite.
-11. Record the feature as complete only when all failures are fixed.
+Before moving to the next milestone:
 
-Apply the `feature-cycle` skill for each feature.
+1. Add meaningful logic/migration tests for changed behavior and reproduce the original defect where applicable.
+2. Run targeted tests; fix the cause without weakening valid assertions.
+3. Add/run Compose interaction tests for changed user flows.
+4. Render/inspect screenshots and semantics for changed UI.
+5. Build and run on an emulator; execute the relevant journey and a boundary/lifecycle case.
+6. Run the affected regression suites, inspect actual output and record command/result/commit evidence.
 
-## UX quality gate
+Documentation-only maintenance uses link/consistency/diff validation and does not require an APK build. If emulator/tooling is unavailable, continue independent work, report the exact blocked checks and do not mark the affected milestone verified. Never fabricate test results.
 
-Do not approve a UI simply because it compiles. Verify:
+One writer owns production changes at a time. Independent reviewers are read-only; use them for material save/economy/UI/release risks when supported, not as competing implementations. Model selection is made in the harness; the approved Codex choice is GPT-6 Luna Max. Do not silently substitute a model or install credentials.
 
-- information hierarchy;
-- tap target sizing;
-- one-handed portrait usability;
-- clear labels and feedback;
-- loading/disabled/empty/error states where applicable;
-- scroll behavior and bottom-navigation interaction;
-- system insets and edge-to-edge behavior;
-- text scale 1.0 and 1.5;
-- TalkBack semantics for interactive controls;
-- no information conveyed by color alone;
-- reduced-motion behavior;
-- back handling/predictive back where relevant;
-- no accidental double-purchase from rapid taps.
+## Git and completion
 
-## Anti-AI-slop rule
+Follow VERSION_CONTROL. Preserve `main`, `v1.0` and all historical version branches. Work on `v1.2`; no force push, branch deletion, rebase of published history or merge into main. Make scoped commits and push authorized work to v1.2. Do not tag a release before RELEASE_CHECKLIST passes.
 
-Read `.agents/rules/ui-no-ai-slop.md` before any visual work. Never use generic AI-generated dashboard aesthetics: purple/blue gradients, glassmorphism everywhere, huge rounded cards, decorative glowing blobs, random sparkles, 3D floating crypto coins, fake charts with meaningless data, generic hero layouts, excessive shadows, emoji-as-interface, or generated illustrations.
-
-## Testing discipline
-
-- Tests are product requirements, not cleanup.
-- Fix code rather than weakening assertions.
-- A flaky test is a bug.
-- Never delete a valid failing test merely to make CI green.
-- Run release-path tests before declaring done.
-- On any crash, capture logs, reproduce, add a regression test where feasible, fix, and rerun the relevant suite.
-
-## Git discipline
-
-- Keep commits scoped to a feature/fix when Git is configured.
-- Never rewrite user work without inspecting it first.
-- Do not run destructive Git commands unless explicitly requested.
-- Do not make unrelated refactors during a bug fix.
-
-## Completion definition
-
-Do not say the project is complete until the **current local-release scope** in `docs/RELEASE_CHECKLIST.md` and `docs/PRODUCTION_READINESS.md` is satisfied and the full quality gate succeeds. Google Play publishing work is optional future scope.
+Keep CURRENT_STATE accurate after each milestone, including blockers and unverified checks. Complete only when all feature acceptance checks and the emulator/local APK release gates pass. Physical vibration feel and real-phone performance remain unverified under the approved emulator-only setup; do not make claims about them.
