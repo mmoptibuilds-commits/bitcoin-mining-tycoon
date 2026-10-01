@@ -42,7 +42,7 @@ minSdk 31; current compile/target 36 until justified; stable dependencies; portr
 
 - [ ] Reproduce target mismatch, tap-default inconsistency, fractional playtime, repeated offline/daily claim, event expiry and critical transaction races with meaningful tests.
 - [ ] Fix bad upgrade target without renaming saved IDs. Validate unique IDs, all targets/prerequisites, DAG cycles, positive prices, event modifiers and stage references.
-- [ ] Implement schema-1 → schema-2 migration/new-field defaults/recovery checkpoint as additions require, with preservation assertions for every field in SAVE_COMPATIBILITY.
+- [ ] Implement schema-1/2 → current-schema migration/new-field defaults/recovery checkpoint as additions require, with preservation assertions for every field in SAVE_COMPATIBILITY.
 - [ ] Resolve prestige cumulative award accounting/large magnitudes and automation reset; verify preview equals apply.
 - [ ] Resolve time/RNG/event/flush correctness at actual owning layer; inspect cause before changing architecture.
 - [ ] Run data/engine/ViewModel suites and emulator process-death/reward flows. Check signing-compatible update using representative fixtures when candidate migration exists.

@@ -24,6 +24,7 @@ Apply these rules to valid schema-1 values. Migration is distinct from a deliber
 | `marketTimerSeconds`, `eventTimerSeconds` | Preserve valid elapsed/countdown phase; if a revised interval requires adjustment, use an explicit bounded conversion and test it rather than restarting every save |
 | `autoSellEnabled` | Preserve enabled/disabled state when its prerequisite upgrade is owned; disable execution safely when locked and explain why |
 | `autoSellThresholdUsd` | Preserve the valid configured threshold across migration and prestige; new settings must not silently replace it |
+| `autoSellPendingBtc` | For schema 1/2 default to zero; preserve a valid schema-3 queued fractional-cent sale balance. Invalid values are checkpointed before repair. Include it in prestige-loss preview, and return it to the BTC wallet if Auto-Sell is disabled. |
 | `activeEvents` | Preserve known events and their `eventId`, `expiresAtWallMillis`, `multiplier`, `powerModifier`, `heatModifier` and `isWindfall`; expire naturally by wall time, apply offline modifiers only until actual expiry, and never re-award an already-triggered windfall |
 | `achievements` | Preserve earned IDs/awards; do not replay one-time rewards during migration |
 | `satoshiPoints`, `purchasedPrestigeNodes` | Preserve spendable points and owned permanent nodes separately from cumulative earned points |
@@ -42,13 +43,13 @@ Prestige deliberately disables enabled auto-sell while its ordinary prerequisite
 
 ## Schema and new fields
 
-First v1.2 persisted additions use schema 2 unless a newer schema already exists at implementation time. Migration is idempotent and pure until the durable write succeeds. App version 1.2.0 does not imply schema 1.2. New stats/discovery/teaching fields have safe defaults; derive unlocks from preserved assets. Mark new source attribution as tracked since v1.2; lifetime totals must not be reconstructed from guesswork.
+The initial v1.2 persisted additions use schema 2. The later Auto-Sell conservation fix adds a saved Bitcoin queue and advances the current format to schema 3. Schema 1 migrates directly to 3; schema 2 migrates to 3 with `autoSellPendingBtc="0"`; schema 3 round trips the queue. Each path preserves prior balances, IDs, settings, claims, statistics and RNG state. Migration is idempotent and pure until the durable write succeeds. App version 1.2.0 does not imply save schema 1.2. New stats/discovery/teaching fields have safe defaults; derive unlocks from preserved assets. Mark new source attribution as tracked since v1.2; lifetime totals must not be reconstructed from guesswork.
 
 No actual pre-v1.2 source attribution/playtime can be inferred from current balances. Keep legacy totals and represent unavailable historical coverage honestly. The new per-source counters need not sum to lifetime totals for migrated saves; explain this in Stats.
 
 ## Recovery
 
-Before replacing an unsupported future-schema or genuinely corrupt payload, retain raw bytes in a bounded app-private recovery checkpoint and report a clear recovery state. Never log save contents into release logs. A valid old payload must migrate, not silently fall into new defaults. Unsupported future schema is not authorization to rewrite it as schema 2; refuse mutation safely and preserve original data. If old storage contains unknown content IDs, retain them for recovery and exclude them safely from calculations; do not delete valid known assets.
+Before replacing an unsupported future-schema or genuinely corrupt payload, retain raw bytes in a bounded app-private recovery checkpoint and report a clear recovery state. Never log save contents into release logs. A valid old payload must migrate, not silently fall into new defaults. Unsupported future schema is not authorization to rewrite it as schema 3; refuse mutation safely and preserve original data. If old storage contains unknown content IDs, retain them for recovery and exclude them safely from calculations; do not delete valid known assets.
 
 ## Fixtures and tests
 
