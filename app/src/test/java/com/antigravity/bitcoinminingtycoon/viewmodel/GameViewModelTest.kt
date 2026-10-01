@@ -196,6 +196,31 @@ class GameViewModelTest {
     }
 
     @Test
+    fun disablingAutoSellReturnsQueuedBitcoinToWallet() = testScope.runTest {
+        val pendingBtc = "0.0000000125"
+        val repository = GameRepository(
+            FakeSaveDataSource(
+                GameSave(
+                    purchasedUpgrades = setOf("auto_sell_controller"),
+                    autoSellEnabled = true,
+                    autoSellPendingBtc = pendingBtc
+                )
+            ),
+            clock,
+            this
+        )
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+
+        viewModel.onToggleAutoSell()
+        advanceUntilIdle()
+
+        assertFalse(repository.gameState.value.autoSellEnabled)
+        assertEquals(BigDecimal(pendingBtc), repository.gameState.value.btcBigDecimal)
+        assertEquals(BigDecimal.ZERO, repository.gameState.value.autoSellPendingBtcBigDecimal)
+    }
+
+    @Test
     fun concurrentDailyRewardClaimsAwardTheCumulativePointOnce() = testScope.runTest {
         val source = FakeSaveDataSource(
             GameSave(

@@ -130,6 +130,22 @@ class PrestigeEngineTest {
     }
 
     @Test
+    fun prestigeCountsQueuedAutoSellBitcoinAsResetAndClearsItsQueue() {
+        val state = GameState(
+            btc = "1.25",
+            autoSellPendingBtc = "0.0000000125",
+            stats = StatsState(lifetimeBtcMined = "4")
+        )
+
+        val preview = PrestigeEngine.previewPrestige(state)
+        val reset = PrestigeEngine.applyPrestige(state)
+
+        assertEquals("1.2500000125", preview.currentBtcToLose)
+        assertEquals("0", reset.btc)
+        assertEquals("0", reset.autoSellPendingBtc)
+    }
+
+    @Test
     fun testPrestigeNodePurchasingRules() {
         val state0 = GameState(satoshiPoints = 1L)
 

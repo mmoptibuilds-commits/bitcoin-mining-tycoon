@@ -175,4 +175,30 @@ class GameEngineTest {
         assertTrue(upgraded.usdBigDecimal > baseline.usdBigDecimal)
         assertEquals(0, BigDecimal.ZERO.compareTo(upgraded.btcBigDecimal))
     }
+
+    @Test
+    fun subCentAutoSellProceedsAccumulateWithoutDiscardingMinedBitcoin() {
+        var state = GameState(
+            miners = mapOf("ancient_cpu" to 1L),
+            powerGridTier = 10,
+            coolingTier = 7,
+            marketPrice = "65000.00",
+            marketTimerSeconds = 100.0,
+            autoSellEnabled = true,
+            autoSellThresholdUsd = "60000.00"
+        )
+
+        repeat(10) { tick ->
+            state = GameEngine.tick(state, deltaSeconds = 0.01, wallMillis = tick * 10L)
+        }
+
+        assertTrue("fractional proceeds must eventually pay a cent", state.usdBigDecimal >= BigDecimal("0.01"))
+        assertEquals(0, BigDecimal.ZERO.compareTo(state.btcBigDecimal))
+        val accountedBtc = state.stats.totalBtcSoldBigDecimal.add(state.autoSellPendingBtcBigDecimal)
+            .add(state.btcBigDecimal)
+        assertEquals(0, state.stats.lifetimeBtcBigDecimal.compareTo(accountedBtc))
+
+        val restored = GameSave.fromGameState(state, currentWallMillis = 100L).toGameState()
+        assertEquals(state.autoSellPendingBtc, restored.autoSellPendingBtc)
+    }
 }

@@ -142,6 +142,13 @@ fun MarketCard(
                         color = AppColors.TextMedium,
                         fontSize = 12.sp
                     )
+                    if (gameState.autoSellPendingBtcBigDecimal.signum() > 0) {
+                        Text(
+                            text = "Auto-Sell is holding mined Bitcoin until a sale reaches \$0.01. Turning Auto-Sell off returns it to your Bitcoin balance.",
+                            color = AppColors.TextMedium,
+                            fontSize = 12.sp
+                        )
+                    }
                     TycoonButton(
                         text = "Change threshold",
                         onClick = {

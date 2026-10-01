@@ -24,13 +24,13 @@ import kotlinx.serialization.encodeToString
 class SaveMigrationsTest {
 
     @Test
-    fun migrate_preservesDistinctiveSchemaOneFixtureAndAddsSafeV2Defaults() {
+    fun migrate_preservesDistinctiveSchemaOneFixtureAndAddsSafeCurrentDefaults() {
         val result = SaveMigrations.migrate(fixture("mid.json"))
         assertTrue(result is SaveMigrationResult.Ready)
         val save = (result as SaveMigrationResult.Ready).save
 
         assertEquals(1, result.migratedFromVersion)
-        assertEquals(2, save.schemaVersion)
+        assertEquals(GameSave.CURRENT_SCHEMA_VERSION, save.schemaVersion)
         assertEquals("12.340056789", save.btc)
         assertEquals("8765.43", save.usd)
         assertEquals("7654321.125", save.manualHashStrength)
@@ -45,6 +45,7 @@ class SaveMigrationsTest {
         assertEquals(8.5, save.eventTimerSeconds, 0.0)
         assertTrue(save.autoSellEnabled)
         assertEquals("42424.24", save.autoSellThresholdUsd)
+        assertEquals("0", save.autoSellPendingBtc)
         assertEquals(2, save.activeEvents.size)
         assertEquals("bull_run", save.activeEvents[0].eventId)
         assertEquals(1726123456789L, save.activeEvents[0].expiresAtWallMillis)
@@ -99,6 +100,47 @@ class SaveMigrationsTest {
         assertFalse(legacy.save.stats.sourceBreakdownTrackedSinceV12)
         assertFalse(olderSchemaTwo.save.stats.sourceBreakdownTrackedSinceV12)
         assertTrue(GameSave().stats.sourceBreakdownTrackedSinceV12)
+    }
+
+    @Test
+    fun schemaTwoSaveMigratesToThreeWithFractionalAutoSellQueueDefaultedAndOtherFieldsPreserved() {
+        val result = SaveMigrations.migrate(
+            """{"schemaVersion":2,"btc":"0.125","usd":"250.00","autoSellEnabled":true,"autoSellThresholdUsd":"64000.25","miners":{"ancient_cpu":3},"lastSaveWallMillis":1700000000000}"""
+        ) as SaveMigrationResult.Ready
+
+        assertEquals(2, result.migratedFromVersion)
+        assertEquals(3, result.save.schemaVersion)
+        assertEquals("0", result.save.autoSellPendingBtc)
+        assertEquals("0.125", result.save.btc)
+        assertEquals("250.00", result.save.usd)
+        assertTrue(result.save.autoSellEnabled)
+        assertEquals("64000.25", result.save.autoSellThresholdUsd)
+        assertEquals(3L, result.save.miners["ancient_cpu"])
+        assertEquals(1700000000000L, result.save.lastSaveWallMillis)
+    }
+
+    @Test
+    fun malformedFractionalAutoSellQueueIsCheckpointWorthyAndRepaired() {
+        val result = SaveMigrations.migrate(
+            """{"schemaVersion":3,"btc":"0.5","autoSellPendingBtc":"-2"}"""
+        ) as SaveMigrationResult.Ready
+
+        assertEquals("0.5", result.save.btc)
+        assertEquals("0", result.save.autoSellPendingBtc)
+        assertTrue("Invalid autoSellPendingBtc" in result.recoveryWarnings)
+    }
+
+    @Test
+    fun schemaThreePreservesValidFractionalAutoSellBitcoinAcrossMigration() {
+        val result = SaveMigrations.migrate(
+            """{"schemaVersion":3,"btc":"0.5","autoSellPendingBtc":"0.0000000125","autoSellEnabled":true}"""
+        ) as SaveMigrationResult.Ready
+
+        assertEquals(null, result.migratedFromVersion)
+        assertEquals("0.5", result.save.btc)
+        assertEquals("0.0000000125", result.save.autoSellPendingBtc)
+        assertTrue(result.save.autoSellEnabled)
+        assertTrue(result.recoveryWarnings.isEmpty())
     }
 
     @Test

@@ -31,9 +31,9 @@ object GameEngine {
         // Event and market transitions share one deterministic RNG; persist its continuation below.
         val eventTickedState = EventEngine.tick(state, boundedDelta, wallMillis, rng)
         val marketTickedState = MarketEngine.tick(eventTickedState, boundedDelta, rng)
-        val (unsoldBtc, autoSellUsdGain) = MarketEngine.evaluateAutoSell(marketTickedState, minedBtc)
-        val updatedBtc = marketTickedState.btcBigDecimal.add(unsoldBtc, GameNumber.MATH_CONTEXT)
-        val updatedUsd = marketTickedState.usdBigDecimal.add(autoSellUsdGain, GameNumber.MATH_CONTEXT)
+        val autoSale = MarketEngine.evaluateAutoSell(marketTickedState, minedBtc)
+        val updatedBtc = marketTickedState.btcBigDecimal.add(autoSale.unsoldBtc, GameNumber.MATH_CONTEXT)
+        val updatedUsd = marketTickedState.usdBigDecimal.add(autoSale.usdGain, GameNumber.MATH_CONTEXT)
 
         val lifetimeBtc = marketTickedState.stats.lifetimeBtcBigDecimal.add(minedBtc, GameNumber.MATH_CONTEXT)
         val foregroundPassiveBtc = GameNumber.fromString(marketTickedState.stats.foregroundPassiveBtc)
@@ -43,11 +43,9 @@ object GameEngine {
             EconomyEngine.calculateEffectiveHashrate(marketTickedState)
         )
         val playtime = advancePlaytime(marketTickedState, boundedDelta)
-        val sold = if (autoSellUsdGain > BigDecimal.ZERO) {
-            marketTickedState.stats.totalBtcSoldBigDecimal.add(minedBtc, GameNumber.MATH_CONTEXT)
-        } else marketTickedState.stats.totalBtcSoldBigDecimal
+        val sold = marketTickedState.stats.totalBtcSoldBigDecimal.add(autoSale.soldBtc, GameNumber.MATH_CONTEXT)
         val lifetimeUsdEarned = marketTickedState.stats.lifetimeUsdBigDecimal
-            .add(autoSellUsdGain, GameNumber.MATH_CONTEXT)
+            .add(autoSale.usdGain, GameNumber.MATH_CONTEXT)
         val (temperature, _) = EconomyEngine.calculateThermalState(marketTickedState)
 
         val baseStats = marketTickedState.stats.copy(
@@ -64,6 +62,7 @@ object GameEngine {
         val updatedState = marketTickedState.copy(
             btc = updatedBtc.toPlainString(),
             usd = updatedUsd.setScale(2, RoundingMode.HALF_UP).toPlainString(),
+            autoSellPendingBtc = autoSale.pendingBtc.toPlainString(),
             stats = updatedStats,
             rngSeed = rng.nextLong()
         )

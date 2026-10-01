@@ -32,6 +32,7 @@ data class GameSave(
     val eventTimerSeconds: Double = BalanceConfig.EVENT_INITIAL_TIMER_SECONDS,
     val autoSellEnabled: Boolean = false,
     val autoSellThresholdUsd: String = BalanceConfig.AUTO_SELL_INITIAL_THRESHOLD_USD,
+    val autoSellPendingBtc: String = "0",
     val activeEvents: List<ActiveEventState> = emptyList(),
     val achievements: Set<String> = emptySet(),
     val satoshiPoints: Long = 0L,
@@ -52,7 +53,7 @@ data class GameSave(
     @Transient val requiresSchemaCommit: Boolean = false
 ) {
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 2
+        const val CURRENT_SCHEMA_VERSION = 3
 
         fun fromGameState(state: GameState, currentWallMillis: Long): GameSave =
             GameSave(
@@ -71,6 +72,7 @@ data class GameSave(
                 eventTimerSeconds = state.eventTimerSeconds,
                 autoSellEnabled = state.autoSellEnabled,
                 autoSellThresholdUsd = state.autoSellThresholdUsd,
+                autoSellPendingBtc = state.autoSellPendingBtc,
                 activeEvents = state.activeEvents,
                 achievements = state.achievements,
                 satoshiPoints = state.satoshiPoints,
@@ -107,6 +109,7 @@ data class GameSave(
             eventTimerSeconds = eventTimerSeconds,
             autoSellEnabled = autoSellEnabled,
             autoSellThresholdUsd = autoSellThresholdUsd,
+            autoSellPendingBtc = autoSellPendingBtc,
             activeEvents = activeEvents,
             achievements = achievements,
             satoshiPoints = satoshiPoints,

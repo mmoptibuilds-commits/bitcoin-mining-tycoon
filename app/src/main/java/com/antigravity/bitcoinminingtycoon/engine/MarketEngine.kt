@@ -9,6 +9,13 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.random.Random
 
+data class AutoSellEvaluation(
+    val unsoldBtc: BigDecimal,
+    val usdGain: BigDecimal,
+    val pendingBtc: BigDecimal,
+    val soldBtc: BigDecimal
+)
+
 /**
  * Pure Kotlin deterministic simulation engine for the in-game fictional Bitcoin market.
  * Invariant 1: UI composables never contain market simulation or economy formulas.
@@ -183,26 +190,30 @@ object MarketEngine {
     private fun effectiveSalePrice(state: GameState): BigDecimal = state.marketPriceBigDecimal
         .multiply(BigDecimal.valueOf(UpgradeEngine.calculateMarketMultiplier(state)), GameNumber.MATH_CONTEXT)
 
-    /**
-     * Evaluates auto-sell condition on newly mined BTC delta.
-     */
+    /** Checks the threshold against new output and batches previously queued sub-cent Bitcoin. */
     fun evaluateAutoSell(
         state: GameState,
         minedBtc: BigDecimal
-    ): Pair<BigDecimal, BigDecimal> {
+    ): AutoSellEvaluation {
+        val pendingBtc = state.autoSellPendingBtcBigDecimal
         if (!state.autoSellEnabled || minedBtc.compareTo(BigDecimal.ZERO) <= 0) {
-            return Pair(minedBtc, BigDecimal.ZERO)
+            return AutoSellEvaluation(minedBtc, BigDecimal.ZERO, pendingBtc, BigDecimal.ZERO)
         }
 
         val currentPrice = state.marketPriceBigDecimal
         val threshold = state.autoSellThresholdBigDecimal
 
         return if (currentPrice >= threshold) {
-            val usdGain = minedBtc.multiply(effectiveSalePrice(state), GameNumber.MATH_CONTEXT)
+            val btcToSell = pendingBtc.add(minedBtc, GameNumber.MATH_CONTEXT)
+            val usdGain = btcToSell.multiply(effectiveSalePrice(state), GameNumber.MATH_CONTEXT)
                 .setScale(2, RoundingMode.HALF_UP)
-            Pair(BigDecimal.ZERO, usdGain)
+            if (usdGain.signum() > 0) {
+                AutoSellEvaluation(BigDecimal.ZERO, usdGain, BigDecimal.ZERO, btcToSell)
+            } else {
+                AutoSellEvaluation(BigDecimal.ZERO, BigDecimal.ZERO, btcToSell, BigDecimal.ZERO)
+            }
         } else {
-            Pair(minedBtc, BigDecimal.ZERO)
+            AutoSellEvaluation(minedBtc, BigDecimal.ZERO, pendingBtc, BigDecimal.ZERO)
         }
     }
 }

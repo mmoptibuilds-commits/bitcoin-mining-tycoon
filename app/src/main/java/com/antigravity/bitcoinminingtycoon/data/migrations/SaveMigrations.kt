@@ -91,7 +91,8 @@ object SaveMigrations {
             if ((value as? JsonPrimitive)?.longOrNull?.let { it >= 0L } != true) warnings += "Invalid $key"
         }
 
-        listOf("btc", "usd", "manualHashStrength", "marketPrice", "autoSellThresholdUsd").forEach { decimalField(root, it) }
+        listOf("btc", "usd", "manualHashStrength", "marketPrice", "autoSellThresholdUsd", "autoSellPendingBtc")
+            .forEach { decimalField(root, it) }
         root["marketPrice"]?.let { value ->
             val price = (value as? JsonPrimitive)?.contentOrNull?.let(::validMarketPrice)
             if (price == null) warnings += "Invalid marketPrice"
@@ -271,6 +272,7 @@ object SaveMigrations {
             eventTimerSeconds = root.finiteDouble("eventTimerSeconds", BalanceConfig.EVENT_INITIAL_TIMER_SECONDS, 0.0, BalanceConfig.MAX_OFFLINE_SECONDS),
             autoSellEnabled = root.bool("autoSellEnabled", false),
             autoSellThresholdUsd = decimal(root, "autoSellThresholdUsd", default.autoSellThresholdUsd),
+            autoSellPendingBtc = decimal(root, "autoSellPendingBtc", default.autoSellPendingBtc),
             activeEvents = activeEvents,
             achievements = readStringSet(root["achievements"]),
             satoshiPoints = root.nonNegativeLong("satoshiPoints", 0L),

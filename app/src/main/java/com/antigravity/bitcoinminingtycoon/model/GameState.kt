@@ -92,7 +92,7 @@ data class SettingsState(
  */
 @Serializable
 data class GameState(
-    val schemaVersion: Int = 2,
+    val schemaVersion: Int = 3,
     val btc: String = "0",
     val usd: String = "0",
     val manualHashStrength: String = BalanceConfig.INITIAL_MANUAL_HASHRATE,
@@ -107,6 +107,8 @@ data class GameState(
     val eventTimerSeconds: Double = BalanceConfig.EVENT_INITIAL_TIMER_SECONDS,
     val autoSellEnabled: Boolean = false,
     val autoSellThresholdUsd: String = BalanceConfig.AUTO_SELL_INITIAL_THRESHOLD_USD,
+    /** Bitcoin temporarily held while small Auto-Sell payouts accumulate to one cent. */
+    val autoSellPendingBtc: String = "0",
     val activeEvents: List<ActiveEventState> = emptyList(),
     val achievements: Set<String> = emptySet(),
     val satoshiPoints: Long = 0L,
@@ -129,6 +131,7 @@ data class GameState(
     val manualHashBigDecimal: BigDecimal get() = GameNumber.fromString(manualHashStrength)
     val marketPriceBigDecimal: BigDecimal get() = GameNumber.fromString(marketPrice)
     val autoSellThresholdBigDecimal: BigDecimal get() = GameNumber.fromString(autoSellThresholdUsd)
+    val autoSellPendingBtcBigDecimal: BigDecimal get() = GameNumber.fromString(autoSellPendingBtc)
     val totalOwnedMinerCount: Long
         get() = miners.values.fold(0L) { total, count ->
             val owned = count.coerceAtLeast(0L)

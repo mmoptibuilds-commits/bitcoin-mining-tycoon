@@ -22,6 +22,7 @@ import com.antigravity.bitcoinminingtycoon.platform.NoOpHaptics
 import com.antigravity.bitcoinminingtycoon.platform.SoundEffect
 import com.antigravity.bitcoinminingtycoon.platform.SoundPlayer
 import com.antigravity.bitcoinminingtycoon.util.NumberFormatter
+import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -252,7 +253,16 @@ class GameViewModel(
         viewModelScope.launch {
             val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
                 if (com.antigravity.bitcoinminingtycoon.engine.UpgradeEngine.canEnableAutoSell(it)) {
-                    it.copy(autoSellEnabled = !it.autoSellEnabled)
+                    if (it.autoSellEnabled) {
+                        val returnedBtc = GameNumber.add(it.btcBigDecimal, it.autoSellPendingBtcBigDecimal)
+                        it.copy(
+                            autoSellEnabled = false,
+                            btc = returnedBtc.toPlainString(),
+                            autoSellPendingBtc = "0"
+                        )
+                    } else {
+                        it.copy(autoSellEnabled = true)
+                    }
                 } else it
             }
             playMutationFeedback(result, success = null, invalid = SoundEffect.INVALID)

@@ -52,7 +52,9 @@ object PrestigeEngine {
         return PrestigePreview(
             earnablePoints = earnable,
             isPrestigeAvailable = earnable > 0L,
-            currentBtcToLose = state.btc,
+            currentBtcToLose = state.btcBigDecimal
+                .add(state.autoSellPendingBtcBigDecimal, GameNumber.MATH_CONTEXT)
+                .toPlainString(),
             currentUsdToLose = state.usd,
             minersCountToLose = minersCount,
             upgradesCountToLose = upgradesCount,
@@ -101,6 +103,7 @@ object PrestigeEngine {
             coolingTier = 1,
             activeEvents = emptyList(),
             autoSellEnabled = false,
+            autoSellPendingBtc = "0",
             satoshiPoints = updatedSatoshiPoints,
             stats = updatedStats
         )

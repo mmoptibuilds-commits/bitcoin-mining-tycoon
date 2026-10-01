@@ -147,4 +147,27 @@ class MineScreenTest {
         composeTestRule.onNodeWithText("Enter a valid non-negative USD amount", substring = true).assertIsDisplayed()
         assertEquals(false, saveAttempted)
     }
+
+    @Test
+    fun pendingSubCentAutoSellBitcoinIsExplainedInMarketDetails() {
+        composeTestRule.setContent {
+            BitcoinMiningTycoonTheme {
+                MineScreen(
+                    uiState = GameUiState(
+                        gameState = GameState(
+                            purchasedUpgrades = setOf("auto_sell_controller"),
+                            autoSellPendingBtc = "0.0000000125"
+                        )
+                    ),
+                    onMineClick = {},
+                    onQuickSell = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Show market details").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Auto-Sell is holding mined Bitcoin", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
 }
