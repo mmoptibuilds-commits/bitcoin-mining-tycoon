@@ -1,6 +1,7 @@
 package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
+import com.antigravity.bitcoinminingtycoon.content.Events
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.content.PowerGridStage
 import com.antigravity.bitcoinminingtycoon.model.GameState
@@ -26,7 +27,7 @@ object PowerEngine {
 
         // Active event modifier
         for (event in state.activeEvents) {
-            total *= event.powerModifier
+            if (Events.getById(event.eventId) != null) total *= event.powerModifier
         }
 
         // Upgrades efficiency modifier

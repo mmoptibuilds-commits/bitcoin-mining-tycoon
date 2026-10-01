@@ -6,7 +6,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -46,6 +49,8 @@ fun PrestigeSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = 640.dp)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 16.dp)
                 .semantics(mergeDescendants = true) {
                     contentDescription = if (preview.isPrestigeAvailable) {
@@ -104,13 +109,9 @@ fun PrestigeSheet(
             }
 
             // Reset vs Preserved Sections
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 // Reset Column
                 TycoonCard(
-                    modifier = Modifier.weight(1f),
                     borderColor = AppColors.CriticalRed
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -130,7 +131,6 @@ fun PrestigeSheet(
 
                 // Preserved Column
                 TycoonCard(
-                    modifier = Modifier.weight(1f),
                     borderColor = AppColors.PositiveGreen
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

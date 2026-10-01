@@ -2,6 +2,7 @@ package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.content.EventType
 import com.antigravity.bitcoinminingtycoon.content.Events
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.content.GameEventDefinition
 import com.antigravity.bitcoinminingtycoon.model.ActiveEventState
 import com.antigravity.bitcoinminingtycoon.model.GameState
@@ -45,7 +46,8 @@ object EventEngine {
             val (rolledState, _) = rollRandomEvent(current, wallMillis, rng)
             current = rolledState
             // Next roll in 120 to 240 seconds
-            timer = 120.0 + (rng.nextDouble() * 120.0)
+            timer = BalanceConfig.EVENT_MIN_INTERVAL_SECONDS +
+                (rng.nextDouble() * (BalanceConfig.EVENT_MAX_INTERVAL_SECONDS - BalanceConfig.EVENT_MIN_INTERVAL_SECONDS))
         }
 
         return current.copy(eventTimerSeconds = timer)
@@ -61,8 +63,8 @@ object EventEngine {
     ): Pair<GameState, GameEventDefinition?> {
         val roll = rng.nextDouble()
         val candidateEvents = when {
-            roll < 0.50 -> Events.ALL.filter { it.type == EventType.AMBIENT_POSITIVE }
-            roll < 0.75 -> Events.ALL.filter { it.type == EventType.AMBIENT_NEGATIVE }
+            roll < BalanceConfig.EVENT_POSITIVE_WEIGHT -> Events.ALL.filter { it.type == EventType.AMBIENT_POSITIVE }
+            roll < BalanceConfig.EVENT_POSITIVE_WEIGHT + BalanceConfig.EVENT_NEGATIVE_WEIGHT -> Events.ALL.filter { it.type == EventType.AMBIENT_NEGATIVE }
             else -> Events.ALL.filter { it.type == EventType.WINDFALL }
         }
 
@@ -129,7 +131,7 @@ object EventEngine {
         }
 
         val updatedStats = state.stats.copy(
-            totalEventsTriggered = state.stats.totalEventsTriggered + 1L
+            totalEventsTriggered = saturatingAdd(state.stats.totalEventsTriggered, 1L)
         )
 
         return state.copy(
@@ -164,14 +166,16 @@ object EventEngine {
         return when (eventId) {
             "lucky_block" -> {
                 // Award 180 seconds of mining output, or minimum 0.00010000 BTC
-                val minedBtc = EconomyEngine.calculateMinedBtc(effectiveHashrate, 180.0)
-                val minBtc = BigDecimal("0.00010000")
+                val minedBtc = EconomyEngine.calculateMinedBtc(effectiveHashrate, BalanceConfig.LUCKY_BLOCK_PRODUCTION_SECONDS)
+                val minBtc = BigDecimal(BalanceConfig.LUCKY_BLOCK_MIN_BTC)
                 val btcGain = maxOf(minedBtc, minBtc)
 
                 val newBtc = state.btcBigDecimal.add(btcGain, GameNumber.MATH_CONTEXT)
                 val newLifetimeBtc = state.stats.lifetimeBtcBigDecimal.add(btcGain, GameNumber.MATH_CONTEXT)
                 val updatedStats = state.stats.copy(
-                    lifetimeBtcMined = newLifetimeBtc.toPlainString()
+                    lifetimeBtcMined = newLifetimeBtc.toPlainString(),
+                    windfallBtc = GameNumber.fromString(state.stats.windfallBtc)
+                        .add(btcGain, GameNumber.MATH_CONTEXT).toPlainString()
                 )
 
                 val updatedState = state.copy(
@@ -190,9 +194,9 @@ object EventEngine {
 
             "perfect_block" -> {
                 // Award currentPrice * 120s of mining output, or minimum $250.00 USD
-                val minedBtc = EconomyEngine.calculateMinedBtc(effectiveHashrate, 120.0)
+                val minedBtc = EconomyEngine.calculateMinedBtc(effectiveHashrate, BalanceConfig.PERFECT_BLOCK_PRODUCTION_SECONDS)
                 val rawUsd = minedBtc.multiply(currentPrice, GameNumber.MATH_CONTEXT)
-                val minUsd = BigDecimal("250.00")
+                val minUsd = BigDecimal(BalanceConfig.PERFECT_BLOCK_MIN_USD)
                 val usdGain = maxOf(rawUsd, minUsd).setScale(2, RoundingMode.HALF_UP)
 
                 val newUsd = state.usdBigDecimal.add(usdGain, GameNumber.MATH_CONTEXT)
@@ -222,4 +226,7 @@ object EventEngine {
             }
         }
     }
+
+    private fun saturatingAdd(left: Long, right: Long): Long =
+        if (right > 0L && left > Long.MAX_VALUE - right) Long.MAX_VALUE else (left + right).coerceAtLeast(0L)
 }

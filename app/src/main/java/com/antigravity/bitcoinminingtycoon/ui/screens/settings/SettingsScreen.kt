@@ -48,8 +48,11 @@ import com.antigravity.bitcoinminingtycoon.util.NumberFormatPreference
 @Composable
 fun SettingsScreen(
     settings: SettingsState,
+    batteryFriendlyAnimations: Boolean,
     onBackClick: () -> Unit,
-    onUpdateSettings: (SettingsState) -> Unit,
+    onUpdateSettings: ((SettingsState) -> SettingsState) -> Unit,
+    onBatteryFriendlyAnimationsChanged: (Boolean) -> Unit,
+    onOpenAbout: () -> Unit,
     onFactoryReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -115,21 +118,28 @@ fun SettingsScreen(
                             label = "Procedural Audio Synthesizer",
                             description = "Real-time algorithmic sound effects via AudioTrack",
                             checked = settings.soundEnabled,
-                            onCheckedChange = { onUpdateSettings(settings.copy(soundEnabled = it)) }
+                            onCheckedChange = { enabled -> onUpdateSettings { it.copy(soundEnabled = enabled) } }
                         )
 
                         ToggleRow(
                             label = "Haptic Vibrations",
                             description = "Tactile confirmation for mining taps and trades",
                             checked = settings.hapticsEnabled,
-                            onCheckedChange = { onUpdateSettings(settings.copy(hapticsEnabled = it)) }
+                            onCheckedChange = { enabled -> onUpdateSettings { it.copy(hapticsEnabled = enabled) } }
                         )
 
                         ToggleRow(
                             label = "Reduced Visual Motion",
                             description = "Minimize animations, transitions, and pulsing",
                             checked = settings.reducedMotion,
-                            onCheckedChange = { onUpdateSettings(settings.copy(reducedMotion = it)) }
+                            onCheckedChange = { enabled -> onUpdateSettings { it.copy(reducedMotion = enabled) } }
+                        )
+
+                        ToggleRow(
+                            label = "Battery-friendly scene",
+                            description = "Pause decorative scene motion and mining particles",
+                            checked = batteryFriendlyAnimations,
+                            onCheckedChange = onBatteryFriendlyAnimationsChanged
                         )
                     }
                 }
@@ -157,13 +167,13 @@ fun SettingsScreen(
                             val isCompact = settings.numberFormat == NumberFormatPreference.COMPACT_SUFFIX
                             TycoonButton(
                                 text = "COMPACT (1.25M)",
-                                onClick = { onUpdateSettings(settings.copy(numberFormat = NumberFormatPreference.COMPACT_SUFFIX)) },
+                                onClick = { onUpdateSettings { it.copy(numberFormat = NumberFormatPreference.COMPACT_SUFFIX) } },
                                 style = if (isCompact) ButtonStyle.PRIMARY else ButtonStyle.SECONDARY,
                                 modifier = Modifier.weight(1f)
                             )
                             TycoonButton(
                                 text = "SCIENTIFIC (1.2e6)",
-                                onClick = { onUpdateSettings(settings.copy(numberFormat = NumberFormatPreference.SCIENTIFIC)) },
+                                onClick = { onUpdateSettings { it.copy(numberFormat = NumberFormatPreference.SCIENTIFIC) } },
                                 style = if (!isCompact) ButtonStyle.PRIMARY else ButtonStyle.SECONDARY,
                                 modifier = Modifier.weight(1f)
                             )
@@ -192,11 +202,12 @@ fun SettingsScreen(
                             color = AppColors.TextMedium,
                             lineHeight = 16.sp
                         )
-                        Text(
-                            text = "Build: Version 1.0.0 (API 31+ Native)",
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = AppColors.TextDisabled
+                        TycoonButton(
+                            text = "ABOUT THIS APP",
+                            onClick = onOpenAbout,
+                            style = ButtonStyle.SECONDARY,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentDescriptionText = "About Bitcoin Mining Tycoon"
                         )
                     }
                 }
@@ -255,7 +266,7 @@ fun SettingsScreen(
                         color = AppColors.CriticalRed
                     )
                     Text(
-                        text = "Are you absolutely sure you want to wipe all game data? This action cannot be undone.",
+                        text = "This erases balances, machines, upgrades, events, statistics, achievements, prestige points and settings from this device. No real currency or account is involved. This action cannot be undone.",
                         fontSize = 13.sp,
                         color = AppColors.TextHigh
                     )
@@ -326,6 +337,10 @@ private fun ToggleRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            modifier = Modifier.semantics {
+                role = Role.Switch
+                contentDescription = "$label. $description"
+            },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = AppColors.Background,
                 checkedTrackColor = AppColors.PrimaryCopper,

@@ -1,6 +1,9 @@
 package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
+import com.antigravity.bitcoinminingtycoon.content.Events
+import com.antigravity.bitcoinminingtycoon.content.EventType
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
@@ -16,7 +19,7 @@ import kotlin.math.min
 object EconomyEngine {
 
     // 1 Hash produces 10^-10 BTC (0.0000000001 BTC)
-    val BTC_PER_HASH_COEFFICIENT: BigDecimal = BigDecimal("0.0000000001")
+    val BTC_PER_HASH_COEFFICIENT: BigDecimal = BigDecimal(BalanceConfig.BTC_PER_HASH)
 
     fun calculateRawHashrate(state: GameState): BigDecimal {
         var total = BigDecimal.ZERO
@@ -57,27 +60,52 @@ object EconomyEngine {
     fun calculateEffectiveHashrate(state: GameState): BigDecimal {
         val raw = calculateRawHashrate(state)
         if (raw <= BigDecimal.ZERO) return BigDecimal.ZERO
+        return GameNumber.multiply(raw, calculateCombinedHashrateMultiplier(state)).setScale(0, RoundingMode.HALF_UP)
+    }
+
+    /** Effective contribution used by hardware inspection; mining tick output stays calculated above. */
+    fun calculateEffectiveMinerHashrate(state: GameState, minerId: String): BigDecimal {
+        val definition = Miners.getById(minerId) ?: return BigDecimal.ZERO
+        val count = state.miners[minerId]?.takeIf { it > 0L } ?: return BigDecimal.ZERO
+        val baseContribution = definition.baseHashrate
+            .multiply(BigDecimal(count), GameNumber.MATH_CONTEXT)
+        val minerContribution = GameNumber.multiply(baseContribution, UpgradeEngine.calculateMinerMultiplier(state, minerId))
+        val rawContribution = GameNumber.multiply(minerContribution, UpgradeEngine.calculateGlobalHashrateMultiplier(state))
+        return GameNumber.multiply(rawContribution, calculateCombinedHashrateMultiplier(state))
+    }
+
+    private fun calculateCombinedHashrateMultiplier(state: GameState): Double {
 
         val powerFactor = calculatePowerFactor(state)
         val (_, thermalFactor) = calculateThermalState(state)
 
         var eventMultiplier = 1.0
         for (event in state.activeEvents) {
-            eventMultiplier *= event.multiplier
+            if (Events.getById(event.eventId) != null) eventMultiplier *= event.multiplier
         }
 
         // Prestige multiplier: 1% per permanent Satoshi Point (5% if satoshi_vision unlocked)
-        val baseSpMultiplier = if (state.purchasedPrestigeNodes.contains("satoshi_vision")) 0.05 else 0.01
+        val baseSpMultiplier = if (state.purchasedPrestigeNodes.contains("satoshi_vision")) {
+            BalanceConfig.PRESTIGE_POINT_HASHRATE_BONUS_WITH_VISION
+        } else BalanceConfig.PRESTIGE_POINT_HASHRATE_BONUS
         var prestigeMultiplier = 1.0 + (state.satoshiPoints * baseSpMultiplier)
         if (state.purchasedPrestigeNodes.contains("efficient_silicon")) {
-            prestigeMultiplier *= 1.25
+            prestigeMultiplier *= BalanceConfig.EFFICIENT_SILICON_HASHRATE_MULTIPLIER
         }
         if (state.purchasedPrestigeNodes.contains("quantum_legacy")) {
-            prestigeMultiplier *= 3.0
+            prestigeMultiplier *= BalanceConfig.QUANTUM_LEGACY_HASHRATE_MULTIPLIER
         }
 
-        val combinedMultiplier = powerFactor * thermalFactor * eventMultiplier * prestigeMultiplier
-        return GameNumber.multiply(raw, combinedMultiplier).setScale(0, RoundingMode.HALF_UP)
+        val hasPositiveProductionEvent = state.activeEvents.any { active ->
+            val definition = Events.getById(active.eventId)
+            definition?.type == EventType.AMBIENT_POSITIVE &&
+                (active.multiplier > 1.0 || active.powerModifier < 1.0 || active.heatModifier < 1.0)
+        }
+        if (hasPositiveProductionEvent) {
+            eventMultiplier *= UpgradeEngine.calculatePositiveEventProductionMultiplier(state)
+        }
+
+        return powerFactor * thermalFactor * eventMultiplier * prestigeMultiplier
     }
 
     fun calculateMinedBtc(effectiveHashrate: BigDecimal, deltaSeconds: Double): BigDecimal {

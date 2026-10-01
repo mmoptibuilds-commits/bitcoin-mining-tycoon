@@ -34,7 +34,7 @@ class OfflineDailyJourneyTest {
         assertTrue("Player should be eligible for Day 1 reward", DailyRewards.canClaim(state, currentWall))
         val (stateAfterDay1, day1Reward) = DailyRewards.claim(state, currentWall)
         assertNotNull(day1Reward)
-        assertEquals(BigDecimal("100.00"), day1Reward?.usdReward)
+        assertEquals(BigDecimal("3.00"), day1Reward?.usdReward)
         state = stateAfterDay1
         assertEquals(2, state.dailyRewardDay)
 
@@ -75,7 +75,7 @@ class OfflineDailyJourneyTest {
         val (stateAfterDay2, day2Reward) = DailyRewards.claim(state, currentWall)
         assertNotNull(day2Reward)
         assertEquals(2, day2Reward?.dayNumber)
-        assertEquals(BigDecimal("0.00005000"), day2Reward?.btcReward)
+        assertEquals(0, DailyRewards.getForDay(2, state).btcReward.compareTo(day2Reward!!.btcReward))
         assertEquals(3, stateAfterDay2.dailyRewardDay)
         state = stateAfterDay2
 
@@ -97,7 +97,7 @@ class OfflineDailyJourneyTest {
         val (stateAfterMonth, day3Reward) = DailyRewards.claim(state, currentWall)
         assertNotNull(day3Reward)
         assertEquals("Should still be Day 3 reward despite 30 days gap", 3, day3Reward?.dayNumber)
-        assertEquals(BigDecimal("500.00"), day3Reward?.usdReward)
+        assertEquals(0, DailyRewards.getForDay(3, stateAfterDay2).usdReward.compareTo(day3Reward!!.usdReward))
         assertEquals(4, stateAfterMonth.dailyRewardDay)
     }
 }

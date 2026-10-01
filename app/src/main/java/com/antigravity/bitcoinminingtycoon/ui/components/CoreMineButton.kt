@@ -1,6 +1,7 @@
 package com.antigravity.bitcoinminingtycoon.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -34,20 +36,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 private data class FloatingParticle(
     val id: Long,
     val text: String,
     val animOffset: Animatable<Float, *>,
-    val animAlpha: Animatable<Float, *>
+    val animAlpha: Animatable<Float, *>,
+    var animationJob: Job? = null
 )
+
+private const val MAX_FLOATING_PARTICLES = 24
 
 @Composable
 fun CoreMineButton(
     onMineClick: () -> Unit,
     modifier: Modifier = Modifier,
     manualHashrateText: String = "+10 H/s",
-    reducedMotion: Boolean = false
+    reducedMotion: Boolean = false,
+    batteryFriendly: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -55,7 +62,11 @@ fun CoreMineButton(
 
     val particles = remember { mutableStateListOf<FloatingParticle>() }
 
-    val scale = if (isPressed) 0.95f else 1.0f
+    val scale by animateFloatAsState(
+        targetValue = FeedbackMotionPolicy.pressScale(isPressed, reducedMotion),
+        animationSpec = tween(durationMillis = FeedbackMotionPolicy.PRESS_TRANSITION_MILLIS),
+        label = "mine-press-compression"
+    )
 
     Box(
         modifier = modifier
@@ -72,7 +83,11 @@ fun CoreMineButton(
             ) {
                 onMineClick()
 
-                if (!reducedMotion) {
+                if (FeedbackMotionPolicy.allowsCosmeticMotion(reducedMotion, batteryFriendly)) {
+                    if (particles.size >= MAX_FLOATING_PARTICLES) {
+                        val oldest = particles.removeAt(0)
+                        oldest.animationJob?.cancel()
+                    }
                     val p = FloatingParticle(
                         id = System.nanoTime(),
                         text = manualHashrateText,
@@ -80,10 +95,13 @@ fun CoreMineButton(
                         animAlpha = Animatable(1f)
                     )
                     particles.add(p)
-                    scope.launch {
-                        launch { p.animOffset.animateTo(-40f, tween(400)) }
-                        launch { p.animAlpha.animateTo(0f, tween(400)) }
-                        particles.remove(p)
+                    p.animationJob = scope.launch {
+                        try {
+                            launch { p.animOffset.animateTo(-40f, tween(400)) }
+                            launch { p.animAlpha.animateTo(0f, tween(400)) }
+                        } finally {
+                            particles.remove(p)
+                        }
                     }
                 }
             },
@@ -157,6 +175,7 @@ fun CoreMineButton(
                 fontWeight = FontWeight.Bold,
                 color = AppColors.PrimaryCopper.copy(alpha = p.animAlpha.value),
                 modifier = Modifier.offset { IntOffset(0, p.animOffset.value.toInt()) }
+                    .testTag("mine-feedback-particle")
             )
         }
     }

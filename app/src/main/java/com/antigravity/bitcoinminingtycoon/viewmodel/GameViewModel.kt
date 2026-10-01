@@ -3,15 +3,26 @@ package com.antigravity.bitcoinminingtycoon.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
+import com.antigravity.bitcoinminingtycoon.content.Miners
+import com.antigravity.bitcoinminingtycoon.content.FacilityStageCatalog
 import com.antigravity.bitcoinminingtycoon.data.GameRepository
+import com.antigravity.bitcoinminingtycoon.data.MutationDurability
+import com.antigravity.bitcoinminingtycoon.data.MutationResult
+import com.antigravity.bitcoinminingtycoon.data.SaveReadiness
 import com.antigravity.bitcoinminingtycoon.engine.EconomyEngine
+import com.antigravity.bitcoinminingtycoon.engine.MarketEngine
 import com.antigravity.bitcoinminingtycoon.engine.GameEngine
 import com.antigravity.bitcoinminingtycoon.model.GameState
+import com.antigravity.bitcoinminingtycoon.model.TeachingCueIds
 import com.antigravity.bitcoinminingtycoon.platform.ClockProvider
 import com.antigravity.bitcoinminingtycoon.platform.NoOpSoundPlayer
+import com.antigravity.bitcoinminingtycoon.platform.HapticSignal
+import com.antigravity.bitcoinminingtycoon.platform.Haptics
+import com.antigravity.bitcoinminingtycoon.platform.NoOpHaptics
 import com.antigravity.bitcoinminingtycoon.platform.SoundEffect
 import com.antigravity.bitcoinminingtycoon.platform.SoundPlayer
 import com.antigravity.bitcoinminingtycoon.util.NumberFormatter
+import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +34,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.util.concurrent.atomic.AtomicLong
 
 data class GameUiState(
     val btcFormatted: String = "0.00000000 BTC",
@@ -46,31 +58,37 @@ data class GameUiState(
     val prestigePreview: com.antigravity.bitcoinminingtycoon.engine.PrestigePreview? = null,
     val currentWallMillis: Long = 0L,
     val bulkMode: com.antigravity.bitcoinminingtycoon.engine.BulkMode = com.antigravity.bitcoinminingtycoon.engine.BulkMode.X1,
+    val saveReadiness: SaveReadiness = SaveReadiness.Loading,
     val gameState: GameState = GameState()
 )
 
 class GameViewModel(
     val repository: GameRepository,
     val clockProvider: ClockProvider,
-    val soundPlayer: SoundPlayer = NoOpSoundPlayer
+    val soundPlayer: SoundPlayer = NoOpSoundPlayer,
+    private val haptics: Haptics = NoOpHaptics
 ) : ViewModel() {
+
+    private val feedbackBus = GameplayFeedbackBus()
+    private val feedbackSequence = AtomicLong(0L)
+    val gameplayFeedback = feedbackBus.events
 
     private var tickerJob: Job? = null
     private var lastMonotonicNanos: Long = 0L
+    private var logicalGameplayWallMillis: Long? = null
+    private var logicalGameplayWallMonotonicNanos: Long = 0L
     private val _bulkMode = MutableStateFlow(com.antigravity.bitcoinminingtycoon.engine.BulkMode.X1)
     private val _unlockedAchievement = MutableStateFlow<com.antigravity.bitcoinminingtycoon.content.AchievementDefinition?>(null)
-    private val _offlineReport = MutableStateFlow<com.antigravity.bitcoinminingtycoon.engine.OfflineReport?>(null)
     private val _dailyRewardSheetVisible = MutableStateFlow(false)
     private val _prestigeSheetVisible = MutableStateFlow(false)
     val prestigeSheetVisible: StateFlow<Boolean> = _prestigeSheetVisible.asStateFlow()
 
-    val uiState: StateFlow<GameUiState> = kotlinx.coroutines.flow.combine(
+    private val gameUiState: StateFlow<GameUiState> = kotlinx.coroutines.flow.combine(
         repository.gameState,
         _bulkMode,
         _unlockedAchievement,
-        _offlineReport,
         _dailyRewardSheetVisible
-    ) { state, bulk, achievement, offline, dailyVisible ->
+    ) { state, bulk, achievement, dailyVisible ->
         val effectiveHashrate = EconomyEngine.calculateEffectiveHashrate(state)
         val btcPerSec = EconomyEngine.calculateMinedBtc(effectiveHashrate, 1.0)
         val powerDemand = EconomyEngine.calculatePowerDemand(state)
@@ -78,7 +96,7 @@ class GameViewModel(
         val powerFactor = EconomyEngine.calculatePowerFactor(state)
         val (temp, thermalFactor) = EconomyEngine.calculateThermalState(state)
 
-        val wallMillis = clockProvider.wallMillis()
+        val wallMillis = gameplayWallMillis()
         val ambientEvent = state.activeEvents.firstOrNull { !it.isWindfall && it.expiresAtWallMillis > wallMillis }
         val windfallEvent = state.activeEvents.firstOrNull { it.isWindfall && it.expiresAtWallMillis > wallMillis }
         val eventSecRemaining = if (ambientEvent != null) {
@@ -103,7 +121,14 @@ class GameViewModel(
             activeAmbientEvent = ambientEvent,
             activeWindfallEvent = windfallEvent,
             unlockedAchievement = achievement,
-            offlineReport = offline,
+            offlineReport = state.pendingOfflineSummary?.let {
+                com.antigravity.bitcoinminingtycoon.engine.OfflineReport(
+                    durationSeconds = it.durationSeconds,
+                    effectiveHashrate = BigDecimal.ZERO,
+                    minedBtc = BigDecimal(it.creditedBtc),
+                    creditedThroughWallMillis = it.creditedAtWallMillis
+                )
+            },
             dailyRewardSheetVisible = dailyVisible,
             canClaimDailyReward = canClaimDaily,
             dailyRewardCooldownMillis = cooldownRemaining,
@@ -118,18 +143,13 @@ class GameViewModel(
         initialValue = GameUiState()
     )
 
+    val uiState: StateFlow<GameUiState> = kotlinx.coroutines.flow.combine(gameUiState, repository.saveReadiness) { state, readiness ->
+        state.copy(saveReadiness = readiness)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, GameUiState())
+
     init {
         viewModelScope.launch {
             repository.initialize()
-            val current = repository.gameState.value
-            val report = com.antigravity.bitcoinminingtycoon.engine.OfflineEngine.calculateOfflineProgress(
-                state = current,
-                lastSavedWallMillis = current.lastSaveWallMillis,
-                currentWallMillis = clockProvider.wallMillis()
-            )
-            if (report.minedBtc > java.math.BigDecimal.ZERO) {
-                _offlineReport.value = report
-            }
         }
     }
 
@@ -147,20 +167,21 @@ class GameViewModel(
 
                 if (deltaNanos > 0L) {
                     val deltaSeconds = deltaNanos.toDouble() / 1_000_000_000.0
-                    val current = repository.gameState.value
-                    val nextState = GameEngine.tick(
-                        state = current,
-                        deltaSeconds = deltaSeconds,
-                        wallMillis = clockProvider.wallMillis()
-                    )
-                    if (nextState.achievements.size > current.achievements.size) {
-                        val newId = (nextState.achievements - current.achievements).firstOrNull()
-                        if (newId != null) {
-                            _unlockedAchievement.value = com.antigravity.bitcoinminingtycoon.content.Achievements.getById(newId)
-                            soundPlayer.play(SoundEffect.ACHIEVEMENT)
+                    val tickWallMillis = gameplayWallMillis()
+                    var unlocked: com.antigravity.bitcoinminingtycoon.content.AchievementDefinition? = null
+                    val result = repository.mutateLatest(MutationDurability.COALESCED) { current ->
+                        GameEngine.tick(current, deltaSeconds, tickWallMillis).let { ticked ->
+                            ticked.copy(lastSaveWallMillis = maxOf(current.lastSaveWallMillis, tickWallMillis))
+                        }.also { next ->
+                            val id = (next.achievements - current.achievements).firstOrNull()
+                            if (id != null) unlocked = com.antigravity.bitcoinminingtycoon.content.Achievements.getById(id)
                         }
                     }
-                    repository.updateInMemory(nextState)
+                    if (result is MutationResult.Applied && unlocked != null) {
+                        _unlockedAchievement.value = unlocked
+                        playHaptic(result.state, HapticSignal.MILESTONE)
+                        soundPlayer.play(SoundEffect.ACHIEVEMENT)
+                    }
                 }
             }
         }
@@ -177,57 +198,93 @@ class GameViewModel(
 
     fun onClaimWindfall(eventId: String) {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val (nextState, _) = com.antigravity.bitcoinminingtycoon.engine.EventEngine.claimWindfall(
-                state = current,
-                eventId = eventId,
-                wallMillis = clockProvider.wallMillis()
-            )
-            if (nextState != current) {
-                soundPlayer.play(SoundEffect.EVENT)
-                repository.saveImmediate(nextState)
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) { current ->
+                com.antigravity.bitcoinminingtycoon.engine.EventEngine.claimWindfall(current, eventId, gameplayWallMillis()).first
             }
+            playMutationFeedback(result, SoundEffect.EVENT, SoundEffect.INVALID)
         }
     }
 
     fun onManualMineTap() {
-        soundPlayer.play(SoundEffect.TAP)
-        val current = repository.gameState.value
-        val updated = GameEngine.performManualTap(current)
-        if (updated.achievements.size > current.achievements.size) {
-            val newId = (updated.achievements - current.achievements).firstOrNull()
-            if (newId != null) {
-                _unlockedAchievement.value = com.antigravity.bitcoinminingtycoon.content.Achievements.getById(newId)
-                soundPlayer.play(SoundEffect.ACHIEVEMENT)
+        viewModelScope.launch {
+            var unlocked: com.antigravity.bitcoinminingtycoon.content.AchievementDefinition? = null
+            var btcDelta = BigDecimal.ZERO
+            val result = repository.mutateLatest(MutationDurability.COALESCED) { current ->
+                GameEngine.performManualTap(current).copy(
+                    completedTeachingCueIds = current.completedTeachingCueIds + TeachingCueIds.MINE_BITCOIN
+                ).also { next ->
+                    btcDelta = next.btcBigDecimal.subtract(current.btcBigDecimal)
+                    val id = (next.achievements - current.achievements).firstOrNull()
+                    if (id != null) unlocked = com.antigravity.bitcoinminingtycoon.content.Achievements.getById(id)
+                }
+            }
+            if (result is MutationResult.Applied && result.changed) {
+                feedbackBus.publish(
+                    MiningFeedbackEvent(
+                        sequence = feedbackSequence.incrementAndGet(),
+                        btcDelta = btcDelta.toPlainString()
+                    )
+                )
+                playHaptic(result.state, HapticSignal.TAP)
+                soundPlayer.play(SoundEffect.TAP)
+                if (unlocked != null) {
+                    _unlockedAchievement.value = unlocked
+                    playHaptic(result.state, HapticSignal.MILESTONE)
+                    soundPlayer.play(SoundEffect.ACHIEVEMENT)
+                }
             }
         }
-        repository.updateInMemory(updated)
     }
 
     fun onQuickSell(percentage: Int) {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val nextState = com.antigravity.bitcoinminingtycoon.engine.MarketEngine.sellBtc(current, percentage)
-            if (nextState != current) {
-                repository.saveImmediate(nextState)
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                val sold = MarketEngine.sellBtc(it, percentage)
+                if (sold.stats.totalBtcSoldBigDecimal > it.stats.totalBtcSoldBigDecimal &&
+                    sold.usdBigDecimal >= Miners.ALL.first().baseCostUsd) {
+                    sold.copy(completedTeachingCueIds = sold.completedTeachingCueIds + TeachingCueIds.SELL_BITCOIN)
+                } else sold
             }
+            playMutationFeedback(result, success = null, invalid = null)
         }
     }
 
     fun onToggleAutoSell() {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val nextState = current.copy(autoSellEnabled = !current.autoSellEnabled)
-            repository.saveImmediate(nextState)
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                if (com.antigravity.bitcoinminingtycoon.engine.UpgradeEngine.canEnableAutoSell(it)) {
+                    if (it.autoSellEnabled) {
+                        val returnedBtc = GameNumber.add(it.btcBigDecimal, it.autoSellPendingBtcBigDecimal)
+                        it.copy(
+                            autoSellEnabled = false,
+                            btc = returnedBtc.toPlainString(),
+                            autoSellPendingBtc = "0"
+                        )
+                    } else {
+                        it.copy(autoSellEnabled = true)
+                    }
+                } else it
+            }
+            playMutationFeedback(result, success = null, invalid = SoundEffect.INVALID)
         }
     }
 
-    fun onSetAutoSellThreshold(thresholdUsd: BigDecimal) {
-        viewModelScope.launch {
-            val current = repository.gameState.value
-            val nextState = current.copy(autoSellThresholdUsd = thresholdUsd.toPlainString())
-            repository.saveImmediate(nextState)
+    suspend fun onSetAutoSellThreshold(thresholdUsd: BigDecimal): Boolean {
+        if (thresholdUsd.signum() < 0 ||
+            thresholdUsd.precision() > 34 ||
+            thresholdUsd.scale() !in -10_000..10_000
+        ) return false
+
+        var acceptedByCurrentState = false
+        val result = repository.mutateLatest(MutationDurability.IMMEDIATE) { state ->
+            if (com.antigravity.bitcoinminingtycoon.engine.UpgradeEngine.canEnableAutoSell(state)) {
+                acceptedByCurrentState = true
+                state.copy(autoSellThresholdUsd = thresholdUsd.toPlainString())
+            } else {
+                state
+            }
         }
+        return acceptedByCurrentState && result is MutationResult.Applied
     }
 
     fun onSetBulkMode(mode: com.antigravity.bitcoinminingtycoon.engine.BulkMode) {
@@ -236,68 +293,56 @@ class GameViewModel(
 
     fun onBuyMiner(minerId: String) {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val nextState = com.antigravity.bitcoinminingtycoon.engine.FleetEngine.buyMiner(
-                state = current,
-                minerId = minerId,
-                bulkMode = _bulkMode.value
-            )
-            if (nextState != current) {
-                soundPlayer.play(SoundEffect.BUY)
-                repository.saveImmediate(nextState)
-            } else {
-                soundPlayer.play(SoundEffect.INVALID)
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                val bought = com.antigravity.bitcoinminingtycoon.engine.FleetEngine.buyMiner(it, minerId, _bulkMode.value)
+                if (bought == it) return@mutateLatest it
+
+                val discoveredStage = FacilityStageCatalog.stageIndexForMiner(minerId)
+                bought.copy(
+                    completedTeachingCueIds = if (it.miners.values.none { count -> count > 0L }) {
+                        bought.completedTeachingCueIds + TeachingCueIds.BUY_FIRST_MACHINE
+                    } else bought.completedTeachingCueIds,
+                    highestDiscoveredFacilityStage = discoveredStage?.let {
+                        maxOf(bought.highestDiscoveredFacilityStage, it)
+                    } ?: bought.highestDiscoveredFacilityStage
+                )
             }
+            playMutationFeedback(result, SoundEffect.BUY, SoundEffect.INVALID)
         }
     }
 
     fun onBuyUpgrade(upgradeId: String) {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val nextState = com.antigravity.bitcoinminingtycoon.engine.UpgradeEngine.buyUpgrade(current, upgradeId)
-            if (nextState != current) {
-                soundPlayer.play(SoundEffect.BUY)
-                repository.saveImmediate(nextState)
-            } else {
-                soundPlayer.play(SoundEffect.INVALID)
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                com.antigravity.bitcoinminingtycoon.engine.UpgradeEngine.buyUpgrade(it, upgradeId)
             }
+            playMutationFeedback(result, SoundEffect.BUY, SoundEffect.INVALID)
         }
     }
 
     fun onUpgradePowerGrid() {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val nextState = com.antigravity.bitcoinminingtycoon.engine.PowerEngine.upgradePowerGrid(current)
-            if (nextState != current) {
-                soundPlayer.play(SoundEffect.BUY)
-                repository.saveImmediate(nextState)
-            } else {
-                soundPlayer.play(SoundEffect.INVALID)
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                com.antigravity.bitcoinminingtycoon.engine.PowerEngine.upgradePowerGrid(it)
             }
+            playMutationFeedback(result, SoundEffect.BUY, SoundEffect.INVALID)
         }
     }
 
     fun onUpgradeCooling() {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val nextState = com.antigravity.bitcoinminingtycoon.engine.ThermalEngine.upgradeCooling(current)
-            if (nextState != current) {
-                soundPlayer.play(SoundEffect.BUY)
-                repository.saveImmediate(nextState)
-            } else {
-                soundPlayer.play(SoundEffect.INVALID)
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                com.antigravity.bitcoinminingtycoon.engine.ThermalEngine.upgradeCooling(it)
             }
+            playMutationFeedback(result, SoundEffect.BUY, SoundEffect.INVALID)
         }
     }
 
     fun onCollectOfflineReward() {
         viewModelScope.launch {
-            val report = _offlineReport.value ?: return@launch
-            val current = repository.gameState.value
-            val nextState = com.antigravity.bitcoinminingtycoon.engine.OfflineEngine.applyOfflineReward(current, report)
-            _offlineReport.value = null
-            soundPlayer.play(SoundEffect.BUY)
-            repository.saveImmediate(nextState)
+            repository.mutateLatest(MutationDurability.IMMEDIATE) { current ->
+                if (current.pendingOfflineSummary == null) current else current.copy(pendingOfflineSummary = null)
+            }
         }
     }
 
@@ -311,12 +356,14 @@ class GameViewModel(
 
     fun onClaimDailyReward() {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val (nextState, reward) = com.antigravity.bitcoinminingtycoon.content.DailyRewards.claim(current, clockProvider.wallMillis())
-            if (reward != null) {
-                soundPlayer.play(SoundEffect.DAILY_REWARD)
-                repository.saveImmediate(nextState)
+            var claimed = false
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) { current ->
+                com.antigravity.bitcoinminingtycoon.content.DailyRewards.claim(current, gameplayWallMillis()).let { (next, reward) ->
+                    claimed = reward != null
+                    next
+                }
             }
+            if (claimed) playMutationFeedback(result, SoundEffect.DAILY_REWARD, invalid = null)
         }
     }
 
@@ -330,54 +377,119 @@ class GameViewModel(
 
     fun onConfirmPrestige() {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val resetState = com.antigravity.bitcoinminingtycoon.engine.PrestigeEngine.applyPrestige(current)
-            if (resetState != current) {
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                com.antigravity.bitcoinminingtycoon.engine.PrestigeEngine.applyPrestige(it)
+            }
+            if (result is MutationResult.Applied && result.changed) {
                 _prestigeSheetVisible.value = false
+                playHaptic(result.state, HapticSignal.PRESTIGE)
                 soundPlayer.play(SoundEffect.PRESTIGE)
-                repository.saveImmediate(resetState)
             }
         }
     }
 
     fun onBuyPrestigeNode(nodeId: String) {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val nextState = com.antigravity.bitcoinminingtycoon.engine.PrestigeEngine.buyPrestigeNode(current, nodeId)
-            if (nextState != current) {
-                soundPlayer.play(SoundEffect.BUY)
-                repository.saveImmediate(nextState)
-            } else {
-                soundPlayer.play(SoundEffect.INVALID)
+            val result = repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                com.antigravity.bitcoinminingtycoon.engine.PrestigeEngine.buyPrestigeNode(it, nodeId)
+            }
+            playMutationFeedback(result, SoundEffect.BUY, SoundEffect.INVALID)
+        }
+    }
+
+    fun onUpdateSettings(update: (com.antigravity.bitcoinminingtycoon.model.SettingsState) -> com.antigravity.bitcoinminingtycoon.model.SettingsState) {
+        viewModelScope.launch {
+            repository.mutateLatest(MutationDurability.IMMEDIATE) { latest ->
+                latest.copy(settings = update(latest.settings))
             }
         }
     }
 
-    fun onUpdateSettings(newSettings: com.antigravity.bitcoinminingtycoon.model.SettingsState) {
+    fun onSetBatteryFriendlyAnimations(enabled: Boolean) {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val next = current.copy(settings = newSettings)
-            repository.saveImmediate(next)
+            repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                it.copy(batteryFriendlyAnimations = enabled)
+            }
         }
     }
 
     fun onCompleteOnboarding() {
         viewModelScope.launch {
-            val current = repository.gameState.value
-            val initialUsd = if (current.usdBigDecimal == java.math.BigDecimal.ZERO) "15.00" else current.usd
-            val next = current.copy(
-                onboardingCompleted = true,
-                usd = initialUsd
-            )
-            repository.saveImmediate(next)
+            repository.mutateLatest(MutationDurability.IMMEDIATE) { it.copy(onboardingCompleted = true) }
+        }
+    }
+
+    fun onCompleteTeachingCue(cueId: String) {
+        if (cueId !in TeachingCueIds.ALL) return
+        viewModelScope.launch {
+            repository.mutateLatest(MutationDurability.COALESCED) {
+                it.copy(completedTeachingCueIds = it.completedTeachingCueIds + cueId)
+            }
         }
     }
 
     fun onFactoryReset() {
         viewModelScope.launch {
-            val reset = GameState(onboardingCompleted = true)
-            repository.saveImmediate(reset)
+            repository.mutateLatest(MutationDurability.IMMEDIATE) {
+                GameState(onboardingCompleted = false, lastSaveWallMillis = it.lastSaveWallMillis)
+            }
         }
     }
-}
 
+    fun onStartNewSaveFromCheckpoint() {
+        viewModelScope.launch { repository.startNewSaveFromCheckpoint() }
+    }
+
+    fun onRetrySaveLoading() {
+        viewModelScope.launch { repository.initialize() }
+    }
+
+    /** Foreground gameplay time follows the monotonic clock and accepts wall-clock jumps forward only. */
+    @Synchronized
+    private fun gameplayWallMillis(): Long {
+        val monotonicNow = clockProvider.monotonicNanos()
+        val persistedFloor = repository.gameState.value.lastSaveWallMillis.coerceAtLeast(0L)
+        val observedWall = clockProvider.wallMillis().coerceAtLeast(0L)
+        val previous = logicalGameplayWallMillis
+        val logicalNow = if (previous == null) {
+            maxOf(persistedFloor, observedWall)
+        } else {
+            val elapsedNanos = (monotonicNow - logicalGameplayWallMonotonicNanos).coerceAtLeast(0L)
+            val elapsedMillis = elapsedNanos / NANOS_PER_MILLISECOND
+            val monotonicWall = if (Long.MAX_VALUE - previous < elapsedMillis) Long.MAX_VALUE else previous + elapsedMillis
+            maxOf(previous, monotonicWall, persistedFloor, observedWall)
+        }
+        logicalGameplayWallMillis = logicalNow
+        logicalGameplayWallMonotonicNanos = monotonicNow
+        return logicalNow
+    }
+
+    private fun playMutationFeedback(result: MutationResult, success: SoundEffect?, invalid: SoundEffect?) {
+        when (result) {
+            is MutationResult.Applied -> if (result.changed && success != null) {
+                soundPlayer.play(success)
+                hapticFor(success)?.let { playHaptic(result.state, it) }
+            } else if (!result.changed && invalid != null) {
+                soundPlayer.play(invalid)
+                hapticFor(invalid)?.let { playHaptic(result.state, it) }
+            }
+            is MutationResult.Blocked, is MutationResult.PersistenceFailed -> Unit
+        }
+    }
+
+    private fun playHaptic(state: GameState, signal: HapticSignal) {
+        if (state.settings.hapticsEnabled) haptics.play(signal)
+    }
+
+    private fun hapticFor(sound: SoundEffect): HapticSignal? = when (sound) {
+        SoundEffect.TAP -> HapticSignal.TAP
+        SoundEffect.BUY -> HapticSignal.PURCHASE
+        SoundEffect.INVALID -> HapticSignal.INVALID
+        SoundEffect.ACHIEVEMENT, SoundEffect.EVENT, SoundEffect.DAILY_REWARD -> HapticSignal.MILESTONE
+        SoundEffect.PRESTIGE -> HapticSignal.PRESTIGE
+    }
+
+    private companion object {
+        const val NANOS_PER_MILLISECOND = 1_000_000L
+    }
+}

@@ -85,12 +85,19 @@ object FleetEngine {
             return state
         }
 
+        // Do not allow corrupted or extreme saves to wrap owned/purchased counters.
+        if (countToBuy > Long.MAX_VALUE - owned) return state
+
         // 3. Atomically update balances and owned counts
         val nextUsd = availableUsd.subtract(totalCost, GameNumber.MATH_CONTEXT).max(BigDecimal.ZERO)
         val nextOwned = owned + countToBuy
         val nextMiners = state.miners + (minerId to nextOwned)
 
-        val nextTotalPurchased = state.stats.totalMinersPurchased + countToBuy
+        val nextTotalPurchased = if (countToBuy > Long.MAX_VALUE - state.stats.totalMinersPurchased) {
+            Long.MAX_VALUE
+        } else {
+            state.stats.totalMinersPurchased + countToBuy
+        }
         val updatedStats = state.stats.copy(
             totalMinersPurchased = nextTotalPurchased
         )

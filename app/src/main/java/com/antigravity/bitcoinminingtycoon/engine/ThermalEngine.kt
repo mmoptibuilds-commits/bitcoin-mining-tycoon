@@ -2,7 +2,9 @@ package com.antigravity.bitcoinminingtycoon.engine
 
 import com.antigravity.bitcoinminingtycoon.content.CoolingStage
 import com.antigravity.bitcoinminingtycoon.content.Infrastructure
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.content.Miners
+import com.antigravity.bitcoinminingtycoon.content.Events
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import java.math.BigDecimal
@@ -16,7 +18,7 @@ import kotlin.math.max
  */
 object ThermalEngine {
 
-    const val AMBIENT_TEMP_C = 25.0
+    const val AMBIENT_TEMP_C = BalanceConfig.AMBIENT_TEMPERATURE_C
 
     fun calculateHeatDemand(state: GameState): Double {
         var total = 0.0
@@ -28,7 +30,7 @@ object ThermalEngine {
 
         // Active event modifier
         for (event in state.activeEvents) {
-            total *= event.heatModifier
+            if (Events.getById(event.eventId) != null) total *= event.heatModifier
         }
 
         return total
@@ -44,17 +46,25 @@ object ThermalEngine {
         val heat = calculateHeatDemand(state)
         val dissipation = calculateDissipation(state)
         val excess = max(0.0, heat - dissipation)
-        return AMBIENT_TEMP_C + (excess * 0.5)
+        return AMBIENT_TEMP_C + (excess * BalanceConfig.THERMAL_EXCESS_TEMP_PER_HEAT)
     }
 
     fun calculateThermalFactor(temp: Double): Double {
         val factor = when {
-            temp < 70.0 -> 1.0
-            temp < 80.0 -> 1.0 - 0.10 * ((temp - 70.0) / 10.0)
-            temp < 90.0 -> 0.90 - 0.15 * ((temp - 80.0) / 10.0)
-            else -> max(0.50, 0.75 - 0.25 * ((temp - 90.0) / 20.0))
+            temp < BalanceConfig.THERMAL_FULL_OUTPUT_BELOW_C -> 1.0
+            temp < BalanceConfig.THERMAL_FIRST_BAND_END_C ->
+                1.0 - BalanceConfig.THERMAL_FIRST_BAND_DROP *
+                ((temp - BalanceConfig.THERMAL_FULL_OUTPUT_BELOW_C) / BalanceConfig.THERMAL_STANDARD_BAND_WIDTH_C)
+            temp < BalanceConfig.THERMAL_SECOND_BAND_END_C ->
+                BalanceConfig.THERMAL_SECOND_BAND_FACTOR - BalanceConfig.THERMAL_SECOND_BAND_DROP *
+                ((temp - BalanceConfig.THERMAL_FIRST_BAND_END_C) / BalanceConfig.THERMAL_STANDARD_BAND_WIDTH_C)
+            else -> max(
+                BalanceConfig.THERMAL_MIN_OUTPUT_FACTOR,
+                BalanceConfig.THERMAL_HIGH_BAND_FACTOR - BalanceConfig.THERMAL_HIGH_BAND_DROP *
+                    ((temp - BalanceConfig.THERMAL_SECOND_BAND_END_C) / BalanceConfig.THERMAL_HIGH_BAND_WIDTH_C)
+            )
         }
-        return factor.coerceIn(0.5, 1.0)
+        return factor.coerceIn(BalanceConfig.THERMAL_MIN_OUTPUT_FACTOR, 1.0)
     }
 
     fun canUpgradeCooling(state: GameState): Boolean {

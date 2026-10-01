@@ -24,6 +24,17 @@ interface SoundPlayer {
     fun play(sound: SoundEffect)
 }
 
+interface AudioTrackPort {
+    fun write(samples: ShortArray)
+    fun play()
+    fun stop()
+    fun release()
+}
+
+fun interface AudioTrackPortFactory {
+    fun create(samples: ShortArray): AudioTrackPort
+}
+
 object NoOpSoundPlayer : SoundPlayer {
     override fun play(sound: SoundEffect) {}
 }
@@ -34,7 +45,8 @@ object NoOpSoundPlayer : SoundPlayer {
  */
 class AudioTrackSoundPlayer(
     private val isSoundEnabled: () -> Boolean = { true },
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    private val trackFactory: AudioTrackPortFactory = AndroidAudioTrackPortFactory
 ) : SoundPlayer {
 
     companion object {
@@ -159,9 +171,26 @@ class AudioTrackSoundPlayer(
         return buffer
     }
 
-    private fun playPcm(samples: ShortArray) {
+    private suspend fun playPcm(samples: ShortArray) {
+        val audioTrack = trackFactory.create(samples)
+        var playAttempted = false
+        try {
+            audioTrack.write(samples)
+            playAttempted = true
+            audioTrack.play()
+            val durationMillis = ((samples.size.toDouble() / SAMPLE_RATE) * 1000.0).toLong() + 50L
+            kotlinx.coroutines.delay(durationMillis)
+        } finally {
+            if (playAttempted) runCatching { audioTrack.stop() }
+            runCatching { audioTrack.release() }
+        }
+    }
+}
+
+object AndroidAudioTrackPortFactory : AudioTrackPortFactory {
+    override fun create(samples: ShortArray): AudioTrackPort {
         val bufferSize = samples.size * 2 // 16-bit PCM = 2 bytes per sample
-        val audioTrack = AudioTrack.Builder()
+        val track = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_GAME)
@@ -171,7 +200,7 @@ class AudioTrackSoundPlayer(
             .setAudioFormat(
                 AudioFormat.Builder()
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(SAMPLE_RATE)
+                    .setSampleRate(44100)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build()
             )
@@ -179,17 +208,14 @@ class AudioTrackSoundPlayer(
             .setTransferMode(AudioTrack.MODE_STATIC)
             .build()
 
-        audioTrack.write(samples, 0, samples.size)
-        audioTrack.play()
+        return object : AudioTrackPort {
+            override fun write(samples: ShortArray) {
+                track.write(samples, 0, samples.size)
+            }
 
-        // Automatically release track once finished
-        scope.launch {
-            val durationMillis = ((samples.size.toDouble() / SAMPLE_RATE) * 1000.0).toLong() + 50L
-            kotlinx.coroutines.delay(durationMillis)
-            try {
-                audioTrack.stop()
-                audioTrack.release()
-            } catch (_: Throwable) {}
+            override fun play() = track.play()
+            override fun stop() = track.stop()
+            override fun release() = track.release()
         }
     }
 }

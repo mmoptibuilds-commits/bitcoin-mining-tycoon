@@ -17,6 +17,57 @@ PowerShell from repo root, single emulator running for connected tests:
 
 For targeted tests use the actual existing class, e.g. `testDebugUnitTest --tests '*SaveMigrationsTest'`. On Linux/macOS use `./gradlew`. Discover custom simulation tasks with `tasks --all`; do not invent a registered task. Baseline simulations can be JUnit tests selected by class. Install minified release using the SDK's ADB with the correct serial if multiple emulators exist; inspect logs and perform release journeys after debug instrumentation, so the final smoke actually exercises the release artifact.
 
+In this workspace the wrapper is not executable; set the prepared JDK/SDK and invoke it with `bash`:
+
+~~~bash
+export JAVA_HOME=/workspace/.java17-root/usr/lib/jvm/java-17-openjdk-amd64
+export ANDROID_HOME=/workspace/.android-sdk
+export ANDROID_SDK_ROOT=/workspace/.android-sdk
+export ANDROID_USER_HOME=/workspace/.android-user
+export GRADLE_USER_HOME=/workspace/.gradle
+export PATH=$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/36.0.0:$PATH
+bash ./gradlew testDebugUnitTest
+bash ./gradlew lintDebug
+bash ./gradlew lintRelease
+bash ./gradlew connectedDebugAndroidTest
+bash ./gradlew assembleDebug
+bash ./gradlew assembleRelease
+adb devices -l
+~~~
+
+## M7 audit record — 2026-10-01
+
+The source/package audit passed; the complete emulator acceptance did not run. Schema-3 conservation fix commit `bd72fb7bc9afc9aec5c51b5d76be7179cb390d6c` is pushed to `v1.2`; fresh read-only review of the exact commit found no actionable source findings. The post-review `bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks` run passed all 38 XML suites / 187 tests, 0 failures/errors/skips. The refreshed focused matrix passed 121 tests across 17 suites covering adversarial values, migrations, repository/ViewModel concurrency, offline/reward/event/prestige behavior, content integrity, reference pacing, six JVM journey classes and Auto-Sell conservation. Regression cases reproduce and close stale settings snapshots, missing Auto-Sell threshold controls, invalid market checkpoint gaps, foreground rollback extension, immediate save-anchor rollback, inconsistent sale proceeds and sub-cent BTC loss. Current saves use schema 3; schema-1/2 migrations preserve prior fields and initialize the pending Auto-Sell queue safely. Final full+build and focused output is retained in `artifacts/m7/final-validation.log` and `artifacts/m7/final-focused-validation.log`; the current connected-device attempt is in `artifacts/m7/post-conservation-connected-validation.log`. `compileDebugAndroidTestKotlin`, `lintDebug`, `lintRelease`, `assembleDebug` and minified `assembleRelease` passed. `connectedDebugAndroidTest` compiled and packaged current instrumentation, then ended with `DeviceException: No connected devices!`; `/workspace/.android-sdk/platform-tools/adb devices -l` is empty, and there are no API31/API36 AVDs, emulator executable, Android Studio executable or `/dev/kvm` here. Thus Compose assertions compiled but did not execute. The market details target has a Compose `assertHeightIsAtLeast(48.dp)` assertion, compiled but not device-run.
+
+Exact post-review commands:
+
+~~~bash
+bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks
+bash ./gradlew --no-daemon --console=plain testDebugUnitTest --tests '*AdversarialBugHuntTest*' --tests '*SaveMigrationsTest*' --tests '*GameRepositoryTest*' --tests '*GameViewModelTest*' --tests '*OfflineDailyTest*' --tests '*EventAchievementTest*' --tests '*PrestigeEngineTest*' --tests '*GameEngineTest*' --tests '*MarketEngineTest*' --tests '*ContentIntegrityTest*' --tests '*ReferencePacingSimulationTest*' --tests '*EventsAndAchievementsJourneyTest*' --tests '*HardwareBulkJourneyTest*' --tests '*MarketSellJourneyTest*' --tests '*OfflineDailyJourneyTest*' --tests '*PrestigeJourneyTest*' --tests '*SettingsAndStatsJourneyTest*' --rerun-tasks
+bash ./gradlew --no-daemon --console=plain compileDebugAndroidTestKotlin lintDebug lintRelease assembleDebug assembleRelease
+bash ./gradlew --no-daemon --console=plain connectedDebugAndroidTest
+~~~
+
+The final minified local release APK reports application ID `com.antigravity.bitcoinminingtycoon`, versionName `1.2.0`, versionCode `2`, minSdk `31`, target/compile `36`, save schema `3` and `balanceRulesVersion=2`, and label `Bitcoin Mining Tycoon`. The release manifest keeps `allowBackup=false`, launcher/round icon references and portrait MainActivity; the packaged permission list contains VIBRATE plus the app-scoped dynamic receiver permission, with no INTERNET permission. Release certificate SHA-256 is `e8c7f74bc7c2e017e55880394510c4c2df728e6cb8e6cd45bb4835a89eb84932`, matching the locally rebuilt `origin/v1.0` minified snapshot. Both APKs use the workspace debug key; this is not a public signing identity. The final M7 APK SHA-256 is `337d43fc815ab1783e149cef053965b685728fd254007c6ca27d3a348511b9f5`. GitHub release-history lookup returned `Forbidden`; no tags exist and `main`/`v1.0` remain code 1, so any separately distributed higher code is unknown.
+
+### Nine documented journeys
+
+Each file in `journeys/` is a manual Android journey. JVM tests and compiled Compose assertions are supporting evidence, not proof the manual journey ran.
+
+| Journey | Offline evidence | API31/API36 device result |
+|---|---|---|
+| 01 First session | Mine/teaching/facility Compose test sources compile; economy/ViewModel logic is covered by JVM tests. | Not run: no emulator, screenshots or migrated/clean visual inspection. |
+| 02 Market/sell | `MarketSellJourneyTest` plus `MarketEngineTest` passed in the suite. | Not run: sell previews and automation were not exercised on screen. |
+| 03 Hardware/bulk | `HardwareBulkJourneyTest`, economy/content/purchase tests passed; M5 hardware/upgrade Compose test sources compile. | Not run: no screen/scene, rapid-buy or visible deficit-remedy inspection. |
+| 04 Offline/daily/events | `OfflineDailyJourneyTest`, `OfflineDailyTest` and event/reward tests passed, including clock rollback, sub-minute elapsed time, 12-hour cap and event expiry splitting. | Not run: repeat dialog/relaunch/process-death collection and screenshots need an emulator. |
+| 05 Prestige/tree | `PrestigeJourneyTest`, engine/ViewModel tests passed; reset/preserved copy Compose source compiles. | Not run: cancellation, duplicate confirm and live facility reset were not observed. |
+| 06 Settings/accessibility | `SettingsAndStatsJourneyTest` passed; Settings/About Compose source compiles. | Not run: font scale 1.5, compact/tall, TalkBack, insets/back and live persistence remain unobserved. |
+| 07 Process death | Repository/ViewModel adversarial tests passed for serialized changes, purchases/claims and tick ordering. | Not run: no force-stop/relaunch or logcat/process-death observation. |
+| 08 v1.0 save upgrade | All old serializer fixtures/migration/recovery JVM tests passed; local minified v1.0 and v1.2 packages have matching debug certificates. | Not run: no install -r profile, retained save/settings/claim check or process death after update. |
+| 09 App identity | `IdentityUpdateTest` compiles; `aapt`, `apksigner`, merged manifest and APK resources were inspected; authored icon vectors and fallback raster were inspected locally. | Not run: launcher/app drawer, themed/round mask, App Info, recents, splash transition and About were not observed. |
+
+No screenshots or emulator traces were produced. Do not mark these journeys passed from the Gradle build. Run them sequentially on API31 and API36 after Android Studio Device Manager/system images or another supported emulator host is available. Never uninstall or clear the update profile.
+
 ## Evidence layers
 
 - JVM: pure economy/content/precision/clock/RNG/prestige/state invariants; meaningful simulations through real engine.

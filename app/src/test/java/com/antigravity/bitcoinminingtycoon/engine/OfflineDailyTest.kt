@@ -55,6 +55,53 @@ class OfflineDailyTest {
     }
 
     @Test
+    fun positiveOfflineIntervalsBelowSummaryThresholdStillCreditProduction() {
+        val state = GameState(miners = mapOf(Miners.ALL[0].id to 5L))
+        val report = OfflineEngine.calculateOfflineProgress(state, 1_000_000L, 1_059_999L)
+
+        assertEquals(59.999, report.durationSeconds, 0.001)
+        assertTrue(report.minedBtc > BigDecimal.ZERO)
+        assertEquals(report.minedBtc, OfflineEngine.applyOfflineReward(state, report).btcBigDecimal)
+    }
+
+    @Test
+    fun offlineProductionStopsEventMultiplierAtItsExpiryBoundary() {
+        val state = GameState(
+            miners = mapOf(Miners.ALL[0].id to 5L),
+            activeEvents = listOf(
+                com.antigravity.bitcoinminingtycoon.model.ActiveEventState(
+                    eventId = "bull_run",
+                    expiresAtWallMillis = 1_005_000L,
+                    multiplier = 2.0
+                )
+            )
+        )
+        val report = OfflineEngine.calculateOfflineProgress(state, 1_000_000L, 1_010_000L)
+        val baseRate = EconomyEngine.calculateEffectiveHashrate(state.copy(activeEvents = emptyList()))
+        val expected = EconomyEngine.calculateMinedBtc(baseRate.multiply(BigDecimal("2")), 5.0)
+            .add(EconomyEngine.calculateMinedBtc(baseRate, 5.0))
+
+        assertEquals(0, expected.compareTo(report.minedBtc))
+    }
+
+    @Test
+    fun offlineMiningBufferBoostsOnlyOfflineProductionAndDoesNotRaiseTwelveHourCap() {
+        val base = GameState(
+            miners = mapOf(Miners.ALL.first().id to 1L),
+            lastSaveWallMillis = 1_000_000L
+        )
+        val buffered = base.copy(purchasedUpgrades = setOf("offline_mining_buffer"))
+        val baseReport = OfflineEngine.calculateOfflineProgress(base, 1_000_000L, 1_060_000L)
+        val bufferedReport = OfflineEngine.calculateOfflineProgress(buffered, 1_000_000L, 1_060_000L)
+        val expected = baseReport.minedBtc.multiply(BigDecimal("1.25"))
+
+        assertEquals(0, expected.compareTo(bufferedReport.minedBtc))
+        assertEquals(12.0 * 3600.0, OfflineEngine.calculateOfflineProgress(
+            buffered, 1_000_000L, 1_000_000L + 48L * 3600L * 1000L
+        ).durationSeconds, 0.001)
+    }
+
+    @Test
     fun testZeroHashrateYieldsZeroOfflineBtc() {
         val state = GameState() // No automated miners
         val lastSaved = 1_000_000L
@@ -67,16 +114,20 @@ class OfflineDailyTest {
 
     @Test
     fun testDailyRewardInitialClaim() {
-        val state = GameState()
+        val newGame = GameState()
         val currentWall = 1_000_000L
 
+        assertFalse("Reward discovery waits until a machine is owned", DailyRewards.canClaim(newGame, currentWall))
+        assertNull(DailyRewards.claim(newGame, currentWall).second)
+
+        val state = newGame.copy(miners = mapOf(Miners.ALL.first().id to 1L))
         assertTrue(DailyRewards.canClaim(state, currentWall))
 
         val (claimedState, reward) = DailyRewards.claim(state, currentWall)
         assertNotNull(reward)
         assertEquals(1, reward?.dayNumber)
-        assertEquals(BigDecimal("100.00"), reward?.usdReward)
-        assertEquals(BigDecimal("100.00"), claimedState.usdBigDecimal)
+        assertEquals(BigDecimal("3.00"), reward?.usdReward)
+        assertEquals(BigDecimal("3.00"), claimedState.usdBigDecimal)
         assertEquals(2, claimedState.dailyRewardDay)
         assertEquals(currentWall, claimedState.lastDailyClaimWallMillis)
     }
@@ -86,7 +137,8 @@ class OfflineDailyTest {
         val currentWall = 1_000_000L
         val state = GameState(
             dailyRewardDay = 2,
-            lastDailyClaimWallMillis = currentWall
+            lastDailyClaimWallMillis = currentWall,
+            miners = mapOf(Miners.ALL.first().id to 1L)
         )
 
         // 10 hours later (cooldown is 20 hours)
@@ -112,7 +164,8 @@ class OfflineDailyTest {
         val currentWall = 1_000_000L
         val state = GameState(
             dailyRewardDay = 4,
-            lastDailyClaimWallMillis = currentWall
+            lastDailyClaimWallMillis = currentWall,
+            miners = mapOf(Miners.ALL.first().id to 1L)
         )
 
         // Player returns 7 days later
@@ -131,7 +184,8 @@ class OfflineDailyTest {
         val state = GameState(
             dailyRewardDay = 7,
             lastDailyClaimWallMillis = 0L,
-            satoshiPoints = 0L
+            satoshiPoints = 0L,
+            miners = mapOf(Miners.ALL.first().id to 1L)
         )
 
         val (claimedState, reward) = DailyRewards.claim(state, currentWall)
@@ -140,6 +194,31 @@ class OfflineDailyTest {
         assertEquals(1L, reward?.satoshiPointsReward)
         assertEquals(1L, claimedState.satoshiPoints)
         assertEquals(1L, claimedState.stats.lifetimeSatoshiPointsEarned)
+        assertEquals(1L, claimedState.stats.dailyPointsEarnedSinceV2)
+        assertEquals(0L, claimedState.stats.prestigePointsEarnedSinceV2)
         assertEquals("Cycle should wrap back to Day 1", 1, claimedState.dailyRewardDay)
+    }
+
+    @Test
+    fun laterDailyRewardsScaleToProductionAndRespectStageCaps() {
+        val early = GameState(
+            dailyRewardDay = 2,
+            miners = mapOf(Miners.ALL.first().id to 1L)
+        )
+        val earlyBtc = DailyRewards.getForDay(2, early).btcReward
+        val expectedEarlyBtc = EconomyEngine.calculateMinedBtc(
+            EconomyEngine.calculateEffectiveHashrate(early), 45.0
+        )
+        assertEquals(0, expectedEarlyBtc.compareTo(earlyBtc))
+
+        val largeFleet = early.copy(
+            dailyRewardDay = 3,
+            miners = mapOf("dyson_hash_swarm" to 1L),
+            highestDiscoveredFacilityStage = 9
+        )
+        val cashReward = DailyRewards.getForDay(3, largeFleet).usdReward
+        assertTrue(cashReward > BigDecimal("50.00"))
+        assertTrue(cashReward <= BigDecimal("97656250.00"))
+        assertEquals(BigDecimal("3.00"), DailyRewards.getForDay(1, largeFleet).usdReward)
     }
 }

@@ -64,7 +64,7 @@ fun MarketCardPreview() {
             ),
             onQuickSell = {},
             onToggleAutoSell = {},
-            onSetAutoSellThreshold = {}
+            onSetAutoSellThreshold = { true }
         )
     }
 }
@@ -80,6 +80,7 @@ fun HardwareCardPreview() {
             availableUsd = java.math.BigDecimal("5000.00"),
             isUnlocked = true,
             numberFormat = com.antigravity.bitcoinminingtycoon.util.NumberFormatPreference.COMPACT_SUFFIX,
+            gameState = com.antigravity.bitcoinminingtycoon.model.GameState(miners = mapOf("gaming_gpu" to 4L)),
             onBuyClick = {}
         )
     }
@@ -134,8 +135,9 @@ fun UpgradesScreenPreview() {
             ),
             onBuyUpgrade = {},
             onUpgradePowerGrid = {},
-            onUpgradeCooling = {},
-            onNavigateToSatoshiTree = {}
+                    onUpgradeCooling = {},
+                    onNavigateToSatoshiTree = {},
+                    onNavigateToMine = {}
         )
     }
 }
@@ -160,8 +162,11 @@ fun SettingsScreenPreview() {
     BitcoinMiningTycoonTheme {
         com.antigravity.bitcoinminingtycoon.ui.screens.settings.SettingsScreen(
             settings = com.antigravity.bitcoinminingtycoon.model.SettingsState(),
+            batteryFriendlyAnimations = false,
             onBackClick = {},
             onUpdateSettings = {},
+            onBatteryFriendlyAnimationsChanged = {},
+            onOpenAbout = {},
             onFactoryReset = {}
         )
     }

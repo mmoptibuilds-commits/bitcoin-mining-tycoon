@@ -158,4 +158,19 @@ class MarketEngineTest {
         val pZero = MarketEngine.calculateProceeds(BigDecimal.ZERO, price, 100)
         assertEquals(BigDecimal.ZERO, pZero)
     }
+
+    @Test
+    fun stateAwareSalePreviewMatchesActualTransactionIncludingMarketUpgrades() {
+        val state = GameState(
+            btc = "2.50000001",
+            marketPrice = "60000.00",
+            purchasedUpgrades = setOf("market_ticker_display", "limit_order_bot")
+        )
+
+        listOf(10, 50, 100).forEach { percent ->
+            val expectedCash = MarketEngine.previewProceeds(state, percent)
+            val afterSale = MarketEngine.sellBtc(state, percent)
+            assertEquals(expectedCash, afterSale.usdBigDecimal)
+        }
+    }
 }

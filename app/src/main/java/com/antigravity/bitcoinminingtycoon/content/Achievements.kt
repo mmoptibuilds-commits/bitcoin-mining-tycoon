@@ -177,7 +177,7 @@ object Achievements {
         title = "Farm Foundations",
         description = "Own 10 total mining rigs.",
         category = AchievementCategory.HARDWARE,
-        isSatisfied = { it.miners.values.sum() >= 10L }
+        isSatisfied = { it.totalOwnedMinerCount >= 10L }
     )
 
     val FIFTY_RIGS = AchievementDefinition(
@@ -185,7 +185,7 @@ object Achievements {
         title = "Industrial Rack",
         description = "Own 50 total mining rigs.",
         category = AchievementCategory.HARDWARE,
-        isSatisfied = { it.miners.values.sum() >= 50L }
+        isSatisfied = { it.totalOwnedMinerCount >= 50L }
     )
 
     val HUNDRED_RIGS = AchievementDefinition(
@@ -193,23 +193,23 @@ object Achievements {
         title = "Server Room",
         description = "Own 100 total mining rigs.",
         category = AchievementCategory.HARDWARE,
-        isSatisfied = { it.miners.values.sum() >= 100L }
+        isSatisfied = { it.totalOwnedMinerCount >= 100L }
     )
 
     val ASIC_VANGUARD = AchievementDefinition(
         id = "asic_vanguard",
         title = "ASIC Vanguard",
-        description = "Acquire an Antminer S1 dedicated ASIC unit.",
+        description = "Acquire the Entry ASIC dedicated hash unit.",
         category = AchievementCategory.HARDWARE,
-        isSatisfied = { (it.miners["antminer_s1"] ?: 0L) >= 1L }
+        isSatisfied = { (it.miners["entry_asic"] ?: 0L) >= 1L }
     )
 
     val MODERN_DENSITY = AchievementDefinition(
         id = "modern_density",
         title = "Modern Density",
-        description = "Acquire an Antminer S19 Pro 110 TH/s rig.",
+        description = "Acquire the Industrial ASIC hardware tier.",
         category = AchievementCategory.HARDWARE,
-        isSatisfied = { (it.miners["antminer_s19_pro"] ?: 0L) >= 1L }
+        isSatisfied = { (it.miners["industrial_asic"] ?: 0L) >= 1L }
     )
 
     // --- UPGRADES & R&D (5) ---

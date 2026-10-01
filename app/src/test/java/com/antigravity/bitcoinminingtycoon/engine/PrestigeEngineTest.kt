@@ -23,6 +23,37 @@ class PrestigeEngineTest {
     }
 
     @Test
+    fun integerSquareRootIsExactAndSaturatesForHugeDecimalValues() {
+        val max = BigDecimal(Long.MAX_VALUE.toString())
+        assertEquals(Long.MAX_VALUE, PrestigeEngine.calculateTotalPointsFromLifetimeBtc(max.multiply(max)))
+        assertEquals(
+            Long.MAX_VALUE,
+            PrestigeEngine.calculateTotalPointsFromLifetimeBtc(BigDecimal("1" + "0".repeat(200)))
+        )
+        assertEquals(3037000499L, PrestigeEngine.calculateTotalPointsFromLifetimeBtc(BigDecimal("9223372030926249001")))
+    }
+
+    @Test
+    fun dailyLegacyPointsDoNotBlockNewPrestigeProgressAfterMigration() {
+        val state = GameState(
+            stats = StatsState(
+                lifetimeBtcMined = "1002001",
+                lifetimeSatoshiPointsEarned = 1000,
+                prestigePointsBaselineV2 = 1000,
+                prestigePointsEarnedSinceV2 = 0,
+                dailyPointsEarnedSinceV2 = 1000
+            )
+        )
+
+        val preview = PrestigeEngine.previewPrestige(state)
+        assertEquals(1L, preview.earnablePoints)
+        val awarded = PrestigeEngine.applyPrestige(state)
+        assertEquals(1L, awarded.stats.prestigePointsEarnedSinceV2)
+        assertEquals(1001L, awarded.stats.lifetimeSatoshiPointsEarned)
+        assertEquals(1000L, awarded.stats.dailyPointsEarnedSinceV2)
+    }
+
+    @Test
     fun testPreviewAndApplyEquivalence() {
         val state = GameState(
             stats = StatsState(
@@ -74,6 +105,7 @@ class PrestigeEngineTest {
             stats = StatsState(
                 lifetimeBtcMined = "100.00000000", // sqrt(100) = 10 SP total -> 10 - 2 = 8 earnable
                 lifetimeSatoshiPointsEarned = 2L,
+                prestigePointsBaselineV2 = 2L,
                 totalPrestiges = 1L
             )
         )
@@ -95,6 +127,22 @@ class PrestigeEngineTest {
         assertEquals(setOf("cold_start", "industrial_memory"), reset.purchasedPrestigeNodes)
         assertEquals(4, reset.dailyRewardDay)
         assertTrue(reset.achievements.contains("first_hash"))
+    }
+
+    @Test
+    fun prestigeCountsQueuedAutoSellBitcoinAsResetAndClearsItsQueue() {
+        val state = GameState(
+            btc = "1.25",
+            autoSellPendingBtc = "0.0000000125",
+            stats = StatsState(lifetimeBtcMined = "4")
+        )
+
+        val preview = PrestigeEngine.previewPrestige(state)
+        val reset = PrestigeEngine.applyPrestige(state)
+
+        assertEquals("1.2500000125", preview.currentBtcToLose)
+        assertEquals("0", reset.btc)
+        assertEquals("0", reset.autoSellPendingBtc)
     }
 
     @Test

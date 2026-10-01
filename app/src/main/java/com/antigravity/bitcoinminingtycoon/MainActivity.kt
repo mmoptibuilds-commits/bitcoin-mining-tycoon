@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return GameViewModel(app.repository, app.clockProvider, app.soundPlayer) as T
+                return GameViewModel(app.repository, app.clockProvider, app.soundPlayer, app.haptics) as T
             }
         }
     }

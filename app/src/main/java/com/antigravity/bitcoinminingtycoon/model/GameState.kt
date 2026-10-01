@@ -1,5 +1,6 @@
 package com.antigravity.bitcoinminingtycoon.model
 
+import com.antigravity.bitcoinminingtycoon.content.BalanceConfig
 import com.antigravity.bitcoinminingtycoon.util.GameNumber
 import com.antigravity.bitcoinminingtycoon.util.NumberFormatPreference
 import kotlinx.serialization.Serializable
@@ -26,6 +27,21 @@ data class ActiveEventState(
 )
 
 @Serializable
+data class PowerEnergySample(
+    val elapsedSeconds: Long,
+    val demandKw: String,
+    val capacityKw: String,
+    val energyKwh: String
+)
+
+@Serializable
+data class PendingOfflineSummary(
+    val durationSeconds: Double,
+    val creditedBtc: String,
+    val creditedAtWallMillis: Long
+)
+
+@Serializable
 data class StatsState(
     val lifetimeBtcMined: String = "0",
     val lifetimeUsdEarned: String = "0",
@@ -34,12 +50,25 @@ data class StatsState(
     val totalMinersPurchased: Long = 0L,
     val totalUpgradesPurchased: Long = 0L,
     val totalBtcSold: String = "0",
-    val highestPriceObserved: String = "50000",
-    val lowestPriceObserved: String = "50000",
+    val highestPriceObserved: String = BalanceConfig.MARKET_INITIAL_STATS_USD,
+    val lowestPriceObserved: String = BalanceConfig.MARKET_INITIAL_STATS_USD,
     val totalPrestiges: Long = 0L,
     val lifetimeSatoshiPointsEarned: Long = 0L,
     val totalPlaytimeSeconds: Long = 0L,
-    val totalEventsTriggered: Long = 0L
+    val totalEventsTriggered: Long = 0L,
+    val manualBtc: String = "0",
+    val foregroundPassiveBtc: String = "0",
+    val offlineBtc: String = "0",
+    val dailyRewardBtc: String = "0",
+    val windfallBtc: String = "0",
+    val achievementRewardBtc: String = "0",
+    val sourceBreakdownTrackedSinceV12: Boolean = true,
+    val playtimeFractionalSeconds: String = "0",
+    val powerEnergyHistory: List<PowerEnergySample> = emptyList(),
+    val peakTemperatureC: Double = 25.0,
+    val prestigePointsBaselineV2: Long = 0L,
+    val prestigePointsEarnedSinceV2: Long = 0L,
+    val dailyPointsEarnedSinceV2: Long = 0L
 ) {
     val lifetimeBtcBigDecimal: BigDecimal get() = GameNumber.fromString(lifetimeBtcMined)
     val lifetimeUsdBigDecimal: BigDecimal get() = GameNumber.fromString(lifetimeUsdEarned)
@@ -63,21 +92,23 @@ data class SettingsState(
  */
 @Serializable
 data class GameState(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = 3,
     val btc: String = "0",
     val usd: String = "0",
-    val manualHashStrength: String = "50000",
+    val manualHashStrength: String = BalanceConfig.INITIAL_MANUAL_HASHRATE,
     val miners: Map<String, Long> = emptyMap(),
     val purchasedUpgrades: Set<String> = emptySet(),
     val powerGridTier: Int = 1,
     val coolingTier: Int = 1,
-    val marketPrice: String = "50000",
+    val marketPrice: String = BalanceConfig.MARKET_INITIAL_USD,
     val marketTrend: MarketTrend = MarketTrend.NEUTRAL,
-    val marketHistory: List<String> = listOf("50000"),
-    val marketTimerSeconds: Double = 0.0,
-    val eventTimerSeconds: Double = 120.0,
+    val marketHistory: List<String> = listOf(BalanceConfig.MARKET_HISTORY_INITIAL_USD),
+    val marketTimerSeconds: Double = BalanceConfig.MARKET_INITIAL_TIMER_SECONDS,
+    val eventTimerSeconds: Double = BalanceConfig.EVENT_INITIAL_TIMER_SECONDS,
     val autoSellEnabled: Boolean = false,
-    val autoSellThresholdUsd: String = "60000",
+    val autoSellThresholdUsd: String = BalanceConfig.AUTO_SELL_INITIAL_THRESHOLD_USD,
+    /** Bitcoin temporarily held while small Auto-Sell payouts accumulate to one cent. */
+    val autoSellPendingBtc: String = "0",
     val activeEvents: List<ActiveEventState> = emptyList(),
     val achievements: Set<String> = emptySet(),
     val satoshiPoints: Long = 0L,
@@ -88,13 +119,24 @@ data class GameState(
     val onboardingCompleted: Boolean = false,
     val settings: SettingsState = SettingsState(),
     val lastSaveWallMillis: Long = 0L,
-    val rngSeed: Long = 1337L
+    val rngSeed: Long = 1337L,
+    val balanceRulesVersion: Int = BalanceConfig.BALANCE_RULES_VERSION,
+    val completedTeachingCueIds: Set<String> = emptySet(),
+    val highestDiscoveredFacilityStage: Int = 0,
+    val batteryFriendlyAnimations: Boolean = false,
+    val pendingOfflineSummary: PendingOfflineSummary? = null
 ) {
     val btcBigDecimal: BigDecimal get() = GameNumber.fromString(btc)
     val usdBigDecimal: BigDecimal get() = GameNumber.fromString(usd)
     val manualHashBigDecimal: BigDecimal get() = GameNumber.fromString(manualHashStrength)
     val marketPriceBigDecimal: BigDecimal get() = GameNumber.fromString(marketPrice)
     val autoSellThresholdBigDecimal: BigDecimal get() = GameNumber.fromString(autoSellThresholdUsd)
+    val autoSellPendingBtcBigDecimal: BigDecimal get() = GameNumber.fromString(autoSellPendingBtc)
+    val totalOwnedMinerCount: Long
+        get() = miners.values.fold(0L) { total, count ->
+            val owned = count.coerceAtLeast(0L)
+            if (total > Long.MAX_VALUE - owned) Long.MAX_VALUE else total + owned
+        }
 
     fun withBtc(newBtc: BigDecimal): GameState =
         copy(btc = newBtc.toPlainString())
