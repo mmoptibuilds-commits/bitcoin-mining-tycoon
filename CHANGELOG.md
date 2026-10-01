@@ -12,7 +12,7 @@ This changelog separates implemented source from acceptance that still requires 
 - All 20 hardware tiers, 56 grouped ordinary upgrades, corrected content targets, complete statistics presentation, battery-friendly settings, About metadata and native reward/prestige flows.
 - Original graphite/copper adaptive, round and themed launcher icon, Android 12 system splash, and package metadata `1.2.0` / versionCode `2`; the minified release package builds successfully.
 
-Through M6, 173 JVM tests pass, Android instrumentation sources compile, debug/release lint passes with warnings, and minified debug/release APKs build. The local v1.0 release snapshot and v1.2 APK use the same debug certificate. Compose UI assertions, launcher/splash inspection and in-place save-retention update have not run because the current workspace has no Android Studio, emulator image or connected ADB device.
+The M7 local audit reran 173 JVM tests plus a focused 99-test release-risk set; Android instrumentation sources compile, debug/release lint pass with warnings, and minified debug/release APKs build. The local v1.0 release snapshot and v1.2 APK use the same debug certificate. The nine guided emulator journeys, Compose UI assertions, launcher/splash inspection and in-place save-retention update have not run because this workspace has no Android Studio, emulator image or connected ADB device. M7 acceptance remains partial.
 
 ### Remaining before release
 
