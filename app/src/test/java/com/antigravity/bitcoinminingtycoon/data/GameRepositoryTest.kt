@@ -280,6 +280,23 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun immediateMutationPreservesNewerLogicalSaveAnchorAfterWallClockRollback() = testScope.runTest {
+        val initialAnchor = clock.wallMillis() + 60_000L
+        val source = FakeSaveDataSource(GameSave(lastSaveWallMillis = initialAnchor))
+        val repository = GameRepository(source, clock, this)
+        repository.initialize()
+
+        clock.setWallMillis(clock.wallMillis() - 10_000L)
+        val result = repository.mutateLatest(MutationDurability.IMMEDIATE) { current ->
+            current.copy(btc = "1", lastSaveWallMillis = initialAnchor + 250L)
+        }
+
+        assertTrue(result is MutationResult.Applied)
+        assertEquals(initialAnchor + 250L, repository.gameState.value.lastSaveWallMillis)
+        assertEquals(initialAnchor + 250L, source.saveFlow.first().lastSaveWallMillis)
+    }
+
+    @Test
     fun explicitRecoveryMarkerIsAppliedOnlyOnNextDataStoreLaunch() = testScope.runTest {
         val directory = java.nio.file.Files.createTempDirectory("bmt-datastore-recovery").toFile()
         val restartStoreScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

@@ -4,21 +4,29 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +39,8 @@ import com.antigravity.bitcoinminingtycoon.ui.components.TycoonButton
 import com.antigravity.bitcoinminingtycoon.ui.theme.AppColors
 import com.antigravity.bitcoinminingtycoon.util.NumberFormatter
 import java.math.BigDecimal
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 /** Compact sale controls live on Mine; the real history and automation controls expand on demand. */
 @Composable
@@ -38,11 +48,16 @@ fun MarketCard(
     gameState: GameState,
     onQuickSell: (Int) -> Unit,
     onToggleAutoSell: () -> Unit,
-    onSetAutoSellThreshold: (BigDecimal) -> Unit,
+    onSetAutoSellThreshold: suspend (BigDecimal) -> Boolean,
     modifier: Modifier = Modifier,
     onNavigateToUpgrades: () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showThresholdEditor by remember { mutableStateOf(false) }
+    var thresholdDraft by remember { mutableStateOf(gameState.autoSellThresholdUsd) }
+    var thresholdError by remember { mutableStateOf<String?>(null) }
+    var thresholdSaving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val format = gameState.settings.numberFormat
     val priceFormatted = NumberFormatter.formatUsd(gameState.marketPriceBigDecimal, format)
     val proceeds10 = MarketEngine.previewProceeds(gameState, 10)
@@ -75,6 +90,7 @@ fun MarketCard(
                     color = AppColors.PrimaryCopper,
                     fontSize = 14.sp,
                     modifier = Modifier
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                         .semantics {
                             contentDescription = if (expanded) "Hide market details" else "Show market details"
                         }
@@ -117,9 +133,25 @@ fun MarketCard(
                         }
                     )
                     Text(
-                        text = "Automatic sales start at ${NumberFormatter.formatUsd(gameState.autoSellThresholdBigDecimal, format)} per Bitcoin.",
+                        text = "Auto-Sell converts new mining output when Bitcoin reaches this price per Bitcoin.",
                         color = AppColors.TextMedium,
                         fontSize = 12.sp
+                    )
+                    Text(
+                        text = "Current threshold: ${NumberFormatter.formatUsd(gameState.autoSellThresholdBigDecimal, format)} per Bitcoin",
+                        color = AppColors.TextMedium,
+                        fontSize = 12.sp
+                    )
+                    TycoonButton(
+                        text = "Change threshold",
+                        onClick = {
+                            thresholdDraft = gameState.autoSellThresholdUsd
+                            thresholdError = null
+                            showThresholdEditor = true
+                        },
+                        style = ButtonStyle.SECONDARY,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentDescriptionText = "Change Auto-Sell price threshold. Current threshold ${gameState.autoSellThresholdUsd} dollars per Bitcoin"
                     )
                 } else {
                     Text(
@@ -137,7 +169,88 @@ fun MarketCard(
             }
         }
     }
+
+    if (showThresholdEditor) {
+        AlertDialog(
+            onDismissRequest = { if (!thresholdSaving) showThresholdEditor = false },
+            title = { Text("Set Auto-Sell threshold") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Automatically sell new mined Bitcoin when its simulated price reaches your USD threshold.")
+                    OutlinedTextField(
+                        value = thresholdDraft,
+                        onValueChange = { value ->
+                            if (value.length <= MAX_THRESHOLD_INPUT_LENGTH) {
+                                thresholdDraft = value
+                                thresholdError = null
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag(AUTO_SELL_THRESHOLD_INPUT_TAG),
+                        label = { Text("USD per Bitcoin") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        isError = thresholdError != null,
+                        supportingText = {
+                            Text(thresholdError ?: "Use a non-negative amount with up to 34 significant digits.")
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !thresholdSaving,
+                    onClick = {
+                        val threshold = parseAutoSellThresholdInput(thresholdDraft)
+                        if (threshold == null) {
+                            thresholdError = "Enter a valid non-negative USD amount with up to 34 significant digits."
+                        } else {
+                            scope.launch {
+                                thresholdSaving = true
+                                val saved = try {
+                                    onSetAutoSellThreshold(threshold)
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    false
+                                }
+                                thresholdSaving = false
+                                if (saved) {
+                                    showThresholdEditor = false
+                                } else {
+                                    thresholdError = "Auto-Sell is locked or the threshold could not be saved. Try again."
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text(if (thresholdSaving) "Saving…" else "Save threshold")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !thresholdSaving,
+                    onClick = { showThresholdEditor = false }
+                ) { Text("Cancel") }
+            }
+        )
+    }
 }
+
+internal const val MAX_THRESHOLD_INPUT_LENGTH = 64
+internal const val AUTO_SELL_THRESHOLD_INPUT_TAG = "autoSellThresholdInput"
+
+private fun parseAutoSellThresholdInput(value: String): BigDecimal? {
+    val input = value.trim()
+    if (input.isEmpty() || input.length > MAX_THRESHOLD_INPUT_LENGTH) return null
+    if (!AUTO_SELL_THRESHOLD_NUMBER.matches(input)) return null
+    return runCatching { BigDecimal(input) }
+        .getOrNull()
+        ?.takeIf { it.signum() >= 0 && it.precision() <= 34 }
+}
+
+private val AUTO_SELL_THRESHOLD_NUMBER = Regex("(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")
 
 @Composable
 private fun SaleAction(

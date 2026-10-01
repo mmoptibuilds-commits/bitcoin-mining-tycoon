@@ -92,6 +92,19 @@ object SaveMigrations {
         }
 
         listOf("btc", "usd", "manualHashStrength", "marketPrice", "autoSellThresholdUsd").forEach { decimalField(root, it) }
+        root["marketPrice"]?.let { value ->
+            val price = (value as? JsonPrimitive)?.contentOrNull?.let(::validMarketPrice)
+            if (price == null) warnings += "Invalid marketPrice"
+        }
+        root["marketHistory"]?.let { value ->
+            val history = value as? JsonArray
+            if (history == null || history.any { sample ->
+                    (sample as? JsonPrimitive)?.contentOrNull?.let(::validMarketPrice) == null
+                }
+            ) {
+                warnings += "Invalid marketHistory"
+            }
+        }
         root["marketTrend"]?.let { if (enumOrNull<MarketTrend>(root, "marketTrend") == null) warnings += "Invalid marketTrend" }
         listOf(
             "marketTimerSeconds" to BalanceConfig.MAX_OFFLINE_SECONDS,
@@ -236,7 +249,8 @@ object SaveMigrations {
         val stats = decodeStats(root["stats"], wasSchemaOne)
         val miners = readLongMap(root["miners"])
         val activeEvents = readEvents(root["activeEvents"])
-        val marketHistory = readDecimalList(root["marketHistory"]).takeLast(30)
+        val marketPrice = root.string("marketPrice")?.let(::validMarketPrice) ?: default.marketPrice
+        val marketHistory = readMarketHistory(root["marketHistory"]).takeLast(30)
         val derivedStage = highestStage(miners)
 
         return GameSave(
@@ -250,9 +264,9 @@ object SaveMigrations {
             purchasedUpgrades = readStringSet(root["purchasedUpgrades"]),
             powerGridTier = root.int("powerGridTier", 1).coerceIn(1, 10),
             coolingTier = root.int("coolingTier", 1).coerceIn(1, 7),
-            marketPrice = decimal(root, "marketPrice", default.marketPrice),
+            marketPrice = marketPrice,
             marketTrend = root.enum("marketTrend", MarketTrend.NEUTRAL),
-            marketHistory = marketHistory.ifEmpty { listOf(decimal(root, "marketPrice", default.marketPrice)) },
+            marketHistory = marketHistory.ifEmpty { listOf(marketPrice) },
             marketTimerSeconds = root.finiteDouble("marketTimerSeconds", BalanceConfig.MARKET_INITIAL_TIMER_SECONDS, 0.0, BalanceConfig.MAX_OFFLINE_SECONDS),
             eventTimerSeconds = root.finiteDouble("eventTimerSeconds", BalanceConfig.EVENT_INITIAL_TIMER_SECONDS, 0.0, BalanceConfig.MAX_OFFLINE_SECONDS),
             autoSellEnabled = root.bool("autoSellEnabled", false),
@@ -379,10 +393,10 @@ object SaveMigrations {
             .toSet()
     }
 
-    private fun readDecimalList(element: JsonElement?): List<String> {
+    private fun readMarketHistory(element: JsonElement?): List<String> {
         val array = element as? JsonArray ?: return emptyList()
         return array.mapNotNull { item ->
-            (item as? JsonPrimitive)?.content?.let(::validDecimal)
+            (item as? JsonPrimitive)?.contentOrNull?.let(::validMarketPrice)
         }
     }
 
@@ -415,6 +429,15 @@ object SaveMigrations {
         val parsed = BigDecimal(value)
         if (parsed.signum() < 0 || kotlin.math.abs(parsed.scale()) > 10_000) null else value
     }.getOrNull()
+
+    private fun validMarketPrice(value: String): String? {
+        val valid = validDecimal(value) ?: return null
+        val price = BigDecimal(valid)
+        return valid.takeIf {
+            price >= BigDecimal(BalanceConfig.MARKET_MIN_USD) &&
+                price <= BigDecimal(BalanceConfig.MARKET_MAX_USD)
+        }
+    }
 
     private inline fun <reified T> JsonObject.decode(key: String, default: T): T =
         this[key]?.let { runCatching { json.decodeFromJsonElement<T>(it) }.getOrNull() } ?: default

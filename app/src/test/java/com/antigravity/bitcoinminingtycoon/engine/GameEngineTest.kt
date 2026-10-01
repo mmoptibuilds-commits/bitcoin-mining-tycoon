@@ -153,4 +153,26 @@ class GameEngineTest {
         assertTrue("USD should increase from auto-sell", next.usdBigDecimal > BigDecimal.ZERO)
         assertEquals(0, BigDecimal.ZERO.compareTo(next.btcBigDecimal))
     }
+
+    @Test
+    fun autoSellUsesTheSameMarketUpgradeMultiplierAsManualSales() {
+        val initial = GameState(
+            powerGridTier = 5,
+            coolingTier = 5,
+            miners = mapOf("entry_asic" to 10L),
+            marketPrice = "65000.00",
+            autoSellEnabled = true,
+            autoSellThresholdUsd = "60000.00"
+        )
+
+        val baseline = GameEngine.tick(initial, deltaSeconds = 1.0, wallMillis = 1000L)
+        val upgraded = GameEngine.tick(
+            initial.copy(purchasedUpgrades = setOf("market_ticker_display")),
+            deltaSeconds = 1.0,
+            wallMillis = 1000L
+        )
+
+        assertTrue(upgraded.usdBigDecimal > baseline.usdBigDecimal)
+        assertEquals(0, BigDecimal.ZERO.compareTo(upgraded.btcBigDecimal))
+    }
 }

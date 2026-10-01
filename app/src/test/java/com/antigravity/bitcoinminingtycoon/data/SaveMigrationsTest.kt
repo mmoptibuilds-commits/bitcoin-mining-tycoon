@@ -138,6 +138,17 @@ class SaveMigrationsTest {
     }
 
     @Test
+    fun outOfRangeMarketPriceIsCheckpointWorthyAndReplacedBeforeWriting() {
+        listOf("999.99", "1000000.01").forEach { invalidPrice ->
+            val raw = """{"schemaVersion":2,"marketPrice":"$invalidPrice","marketHistory":["$invalidPrice"]}"""
+            val result = SaveMigrations.migrate(raw) as SaveMigrationResult.Ready
+
+            assertEquals(GameSave().marketPrice, result.save.marketPrice)
+            assertTrue("Invalid marketPrice" in result.recoveryWarnings)
+        }
+    }
+
+    @Test
     fun unknownSavedEventIdsArePreservedButExcludedFromEconomy() {
         val state = GameState(
             miners = mapOf("ancient_cpu" to 5L),
@@ -301,13 +312,17 @@ class SaveMigrationsTest {
     fun serializerCheckpointsIndividuallyRepairedFieldsBeforeReturningMigratedSave() = runTest {
         val directory = Files.createTempDirectory("bmt-save-field-repair").toFile()
         try {
-            val original = fixture("mid.json").replace("\"marketTimerSeconds\":23.75", "\"marketTimerSeconds\":999999.0")
+            val original = fixture("mid.json")
+                .replace("\"marketTimerSeconds\":23.75", "\"marketTimerSeconds\":999999.0")
+                .replace("\"63421.987\"", "\"1000000.01\"")
             val payload = original.toByteArray()
             val migrated = GameSaveSerializer(SaveRecoveryCheckpoint(directory)).readFrom(ByteArrayInputStream(payload))
 
             assertEquals("12.340056789", migrated.btc)
             assertEquals(mapOf("ancient_cpu" to 12L, "gaming_cpu" to 4L, "gaming_gpu" to 2L, "dual_gpu_rig" to 1L), migrated.miners)
             assertEquals(0.0, migrated.marketTimerSeconds, 0.0)
+            assertEquals(GameSave().marketPrice, migrated.marketPrice)
+            assertEquals(listOf("50000", "51234.56"), migrated.marketHistory)
             assertTrue(File(directory, "save_recovery/corrupt-save.json").readBytes().contentEquals(payload))
         } finally {
             directory.deleteRecursively()

@@ -93,7 +93,11 @@ class GameRepository(
         }
 
         debounceJob?.cancel()
-        val committedAt = clockProvider.wallMillis().coerceAtLeast(before.lastSaveWallMillis)
+        val committedAt = maxOf(
+            clockProvider.wallMillis(),
+            before.lastSaveWallMillis,
+            next.lastSaveWallMillis
+        ).coerceAtLeast(0L)
         val committed = next.copy(lastSaveWallMillis = committedAt)
         return@withLock try {
             dataSource.update { GameSave.fromGameState(committed, committedAt) }

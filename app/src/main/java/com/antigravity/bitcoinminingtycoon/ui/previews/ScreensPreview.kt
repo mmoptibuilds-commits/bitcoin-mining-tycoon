@@ -64,7 +64,7 @@ fun MarketCardPreview() {
             ),
             onQuickSell = {},
             onToggleAutoSell = {},
-            onSetAutoSellThreshold = {}
+            onSetAutoSellThreshold = { true }
         )
     }
 }

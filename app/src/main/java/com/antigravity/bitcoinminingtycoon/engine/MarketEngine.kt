@@ -198,7 +198,8 @@ object MarketEngine {
         val threshold = state.autoSellThresholdBigDecimal
 
         return if (currentPrice >= threshold) {
-            val usdGain = minedBtc.multiply(currentPrice, GameNumber.MATH_CONTEXT).setScale(2, RoundingMode.HALF_UP)
+            val usdGain = minedBtc.multiply(effectiveSalePrice(state), GameNumber.MATH_CONTEXT)
+                .setScale(2, RoundingMode.HALF_UP)
             Pair(BigDecimal.ZERO, usdGain)
         } else {
             Pair(minedBtc, BigDecimal.ZERO)

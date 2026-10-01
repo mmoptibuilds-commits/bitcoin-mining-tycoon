@@ -3,6 +3,7 @@ package com.antigravity.bitcoinminingtycoon.viewmodel
 import com.antigravity.bitcoinminingtycoon.data.FakeSaveDataSource
 import com.antigravity.bitcoinminingtycoon.data.GameRepository
 import com.antigravity.bitcoinminingtycoon.data.GameSave
+import com.antigravity.bitcoinminingtycoon.model.ActiveEventState
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.platform.SoundEffect
 import com.antigravity.bitcoinminingtycoon.platform.SoundPlayer
@@ -24,6 +25,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -91,6 +93,29 @@ class GameViewModelTest {
     }
 
     @Test
+    fun simultaneousSettingsFieldChangesMergeAgainstLatestSavedSettings() = testScope.runTest {
+        val initialSettings = com.antigravity.bitcoinminingtycoon.model.SettingsState(
+            soundEnabled = true,
+            hapticsEnabled = true,
+            reducedMotion = false
+        )
+        val source = FakeSaveDataSource(GameSave(settings = initialSettings))
+        val repository = GameRepository(source, clock, this)
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+
+        viewModel.onUpdateSettings { it.copy(soundEnabled = false) }
+        viewModel.onUpdateSettings { it.copy(hapticsEnabled = false) }
+        advanceUntilIdle()
+
+        val saved = source.saveFlow.first().settings
+        assertFalse(saved.soundEnabled)
+        assertFalse(saved.hapticsEnabled)
+        assertFalse(repository.gameState.value.settings.soundEnabled)
+        assertFalse(repository.gameState.value.settings.hapticsEnabled)
+    }
+
+    @Test
     fun onQuickSell_convertsExactPercentageToUsd() = testScope.runTest {
         val initialSave = GameSave(
             btc = "1.00000000",
@@ -117,6 +142,57 @@ class GameViewModelTest {
         val afterMax = repo.gameState.value
         assertEquals(0, BigDecimal.ZERO.compareTo(afterMax.btcBigDecimal))
         assertEquals(0, BigDecimal("50000.00").compareTo(afterMax.usdBigDecimal))
+    }
+
+    @Test
+    fun autoSellThresholdCannotBeChangedBeforeControllerUnlock() = testScope.runTest {
+        val source = FakeSaveDataSource()
+        val repository = GameRepository(source, clock, this)
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+        val originalThreshold = repository.gameState.value.autoSellThresholdUsd
+
+        assertFalse(viewModel.onSetAutoSellThreshold(BigDecimal("65000.75")))
+        advanceUntilIdle()
+
+        assertEquals(originalThreshold, repository.gameState.value.autoSellThresholdUsd)
+        assertEquals(originalThreshold, source.saveFlow.first().autoSellThresholdUsd)
+    }
+
+    @Test
+    fun autoSellThresholdRejectsNegativeInputWhenControllerIsUnlocked() = testScope.runTest {
+        val source = FakeSaveDataSource(
+            GameSave(purchasedUpgrades = setOf("auto_sell_controller"))
+        )
+        val repository = GameRepository(source, clock, this)
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+        val originalThreshold = repository.gameState.value.autoSellThresholdUsd
+
+        assertFalse(viewModel.onSetAutoSellThreshold(BigDecimal("-1")))
+        advanceUntilIdle()
+
+        assertEquals(originalThreshold, repository.gameState.value.autoSellThresholdUsd)
+        assertEquals(originalThreshold, source.saveFlow.first().autoSellThresholdUsd)
+    }
+
+    @Test
+    fun autoSellThresholdPersistsOnlyAfterImmediateCommitSucceeds() = testScope.runTest {
+        val source = FakeSaveDataSource(
+            GameSave(purchasedUpgrades = setOf("auto_sell_controller"))
+        )
+        val repository = GameRepository(source, clock, this)
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.onSetAutoSellThreshold(BigDecimal("65000.75")))
+        assertEquals("65000.75", repository.gameState.value.autoSellThresholdUsd)
+        assertEquals("65000.75", source.saveFlow.first().autoSellThresholdUsd)
+
+        val committedThreshold = repository.gameState.value.autoSellThresholdUsd
+        source.failWrites = true
+        assertFalse(viewModel.onSetAutoSellThreshold(BigDecimal("66000")))
+        assertEquals(committedThreshold, repository.gameState.value.autoSellThresholdUsd)
     }
 
     @Test
@@ -266,6 +342,46 @@ class GameViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf(HapticSignal.MILESTONE), haptics.played)
+    }
+
+    @Test
+    fun foregroundEventExpiryUsesMonotonicTimeWhenWallClockMovesBackward() = testScope.runTest {
+        val startWallMillis = clock.wallMillis()
+        val initialSave = GameSave(
+            miners = mapOf("ancient_cpu" to 100L),
+            activeEvents = listOf(
+                ActiveEventState(
+                    eventId = "bull_run",
+                    expiresAtWallMillis = startWallMillis + 150L,
+                    multiplier = 2.0
+                )
+            ),
+            eventTimerSeconds = 1000.0
+        )
+        val repository = GameRepository(FakeSaveDataSource(initialSave), clock, this)
+        val viewModel = GameViewModel(repository, clock)
+        advanceUntilIdle()
+        val baseRate = com.antigravity.bitcoinminingtycoon.engine.EconomyEngine.calculateEffectiveHashrate(
+            repository.gameState.value.copy(activeEvents = emptyList())
+        )
+        val expectedBtc = com.antigravity.bitcoinminingtycoon.engine.EconomyEngine
+            .calculateMinedBtc(baseRate.multiply(BigDecimal("2")), 0.15)
+            .add(
+                com.antigravity.bitcoinminingtycoon.engine.EconomyEngine.calculateMinedBtc(baseRate, 0.05)
+            )
+
+        viewModel.startTicker()
+        repeat(2) {
+            clock.advanceMonotonicNanos(100_000_000L)
+            clock.setWallMillis(startWallMillis - 10_000L)
+            advanceTimeBy(100L)
+            runCurrent()
+        }
+        viewModel.stopTicker()
+        advanceUntilIdle()
+
+        assertEquals(0, expectedBtc.compareTo(repository.gameState.value.btcBigDecimal))
+        assertTrue(repository.gameState.value.activeEvents.isEmpty())
     }
 
     @Test

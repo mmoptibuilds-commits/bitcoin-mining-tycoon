@@ -74,6 +74,8 @@ class GameViewModel(
 
     private var tickerJob: Job? = null
     private var lastMonotonicNanos: Long = 0L
+    private var logicalGameplayWallMillis: Long? = null
+    private var logicalGameplayWallMonotonicNanos: Long = 0L
     private val _bulkMode = MutableStateFlow(com.antigravity.bitcoinminingtycoon.engine.BulkMode.X1)
     private val _unlockedAchievement = MutableStateFlow<com.antigravity.bitcoinminingtycoon.content.AchievementDefinition?>(null)
     private val _dailyRewardSheetVisible = MutableStateFlow(false)
@@ -93,7 +95,7 @@ class GameViewModel(
         val powerFactor = EconomyEngine.calculatePowerFactor(state)
         val (temp, thermalFactor) = EconomyEngine.calculateThermalState(state)
 
-        val wallMillis = clockProvider.wallMillis()
+        val wallMillis = gameplayWallMillis()
         val ambientEvent = state.activeEvents.firstOrNull { !it.isWindfall && it.expiresAtWallMillis > wallMillis }
         val windfallEvent = state.activeEvents.firstOrNull { it.isWindfall && it.expiresAtWallMillis > wallMillis }
         val eventSecRemaining = if (ambientEvent != null) {
@@ -164,9 +166,12 @@ class GameViewModel(
 
                 if (deltaNanos > 0L) {
                     val deltaSeconds = deltaNanos.toDouble() / 1_000_000_000.0
+                    val tickWallMillis = gameplayWallMillis()
                     var unlocked: com.antigravity.bitcoinminingtycoon.content.AchievementDefinition? = null
                     val result = repository.mutateLatest(MutationDurability.COALESCED) { current ->
-                        GameEngine.tick(current, deltaSeconds, clockProvider.wallMillis()).also { next ->
+                        GameEngine.tick(current, deltaSeconds, tickWallMillis).let { ticked ->
+                            ticked.copy(lastSaveWallMillis = maxOf(current.lastSaveWallMillis, tickWallMillis))
+                        }.also { next ->
                             val id = (next.achievements - current.achievements).firstOrNull()
                             if (id != null) unlocked = com.antigravity.bitcoinminingtycoon.content.Achievements.getById(id)
                         }
@@ -193,7 +198,7 @@ class GameViewModel(
     fun onClaimWindfall(eventId: String) {
         viewModelScope.launch {
             val result = repository.mutateLatest(MutationDurability.IMMEDIATE) { current ->
-                com.antigravity.bitcoinminingtycoon.engine.EventEngine.claimWindfall(current, eventId, clockProvider.wallMillis()).first
+                com.antigravity.bitcoinminingtycoon.engine.EventEngine.claimWindfall(current, eventId, gameplayWallMillis()).first
             }
             playMutationFeedback(result, SoundEffect.EVENT, SoundEffect.INVALID)
         }
@@ -254,12 +259,22 @@ class GameViewModel(
         }
     }
 
-    fun onSetAutoSellThreshold(thresholdUsd: BigDecimal) {
-        viewModelScope.launch {
-            repository.mutateLatest(MutationDurability.IMMEDIATE) {
-                it.copy(autoSellThresholdUsd = thresholdUsd.toPlainString())
+    suspend fun onSetAutoSellThreshold(thresholdUsd: BigDecimal): Boolean {
+        if (thresholdUsd.signum() < 0 ||
+            thresholdUsd.precision() > 34 ||
+            thresholdUsd.scale() !in -10_000..10_000
+        ) return false
+
+        var acceptedByCurrentState = false
+        val result = repository.mutateLatest(MutationDurability.IMMEDIATE) { state ->
+            if (com.antigravity.bitcoinminingtycoon.engine.UpgradeEngine.canEnableAutoSell(state)) {
+                acceptedByCurrentState = true
+                state.copy(autoSellThresholdUsd = thresholdUsd.toPlainString())
+            } else {
+                state
             }
         }
+        return acceptedByCurrentState && result is MutationResult.Applied
     }
 
     fun onSetBulkMode(mode: com.antigravity.bitcoinminingtycoon.engine.BulkMode) {
@@ -333,7 +348,7 @@ class GameViewModel(
         viewModelScope.launch {
             var claimed = false
             val result = repository.mutateLatest(MutationDurability.IMMEDIATE) { current ->
-                com.antigravity.bitcoinminingtycoon.content.DailyRewards.claim(current, clockProvider.wallMillis()).let { (next, reward) ->
+                com.antigravity.bitcoinminingtycoon.content.DailyRewards.claim(current, gameplayWallMillis()).let { (next, reward) ->
                     claimed = reward != null
                     next
                 }
@@ -372,9 +387,11 @@ class GameViewModel(
         }
     }
 
-    fun onUpdateSettings(newSettings: com.antigravity.bitcoinminingtycoon.model.SettingsState) {
+    fun onUpdateSettings(update: (com.antigravity.bitcoinminingtycoon.model.SettingsState) -> com.antigravity.bitcoinminingtycoon.model.SettingsState) {
         viewModelScope.launch {
-            repository.mutateLatest(MutationDurability.IMMEDIATE) { it.copy(settings = newSettings) }
+            repository.mutateLatest(MutationDurability.IMMEDIATE) { latest ->
+                latest.copy(settings = update(latest.settings))
+            }
         }
     }
 
@@ -417,6 +434,26 @@ class GameViewModel(
         viewModelScope.launch { repository.initialize() }
     }
 
+    /** Foreground gameplay time follows the monotonic clock and accepts wall-clock jumps forward only. */
+    @Synchronized
+    private fun gameplayWallMillis(): Long {
+        val monotonicNow = clockProvider.monotonicNanos()
+        val persistedFloor = repository.gameState.value.lastSaveWallMillis.coerceAtLeast(0L)
+        val observedWall = clockProvider.wallMillis().coerceAtLeast(0L)
+        val previous = logicalGameplayWallMillis
+        val logicalNow = if (previous == null) {
+            maxOf(persistedFloor, observedWall)
+        } else {
+            val elapsedNanos = (monotonicNow - logicalGameplayWallMonotonicNanos).coerceAtLeast(0L)
+            val elapsedMillis = elapsedNanos / NANOS_PER_MILLISECOND
+            val monotonicWall = if (Long.MAX_VALUE - previous < elapsedMillis) Long.MAX_VALUE else previous + elapsedMillis
+            maxOf(previous, monotonicWall, persistedFloor, observedWall)
+        }
+        logicalGameplayWallMillis = logicalNow
+        logicalGameplayWallMonotonicNanos = monotonicNow
+        return logicalNow
+    }
+
     private fun playMutationFeedback(result: MutationResult, success: SoundEffect?, invalid: SoundEffect?) {
         when (result) {
             is MutationResult.Applied -> if (result.changed && success != null) {
@@ -440,5 +477,9 @@ class GameViewModel(
         SoundEffect.INVALID -> HapticSignal.INVALID
         SoundEffect.ACHIEVEMENT, SoundEffect.EVENT, SoundEffect.DAILY_REWARD -> HapticSignal.MILESTONE
         SoundEffect.PRESTIGE -> HapticSignal.PRESTIGE
+    }
+
+    private companion object {
+        const val NANOS_PER_MILLISECOND = 1_000_000L
     }
 }

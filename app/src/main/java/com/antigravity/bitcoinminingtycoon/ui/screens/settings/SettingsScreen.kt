@@ -50,7 +50,7 @@ fun SettingsScreen(
     settings: SettingsState,
     batteryFriendlyAnimations: Boolean,
     onBackClick: () -> Unit,
-    onUpdateSettings: (SettingsState) -> Unit,
+    onUpdateSettings: ((SettingsState) -> SettingsState) -> Unit,
     onBatteryFriendlyAnimationsChanged: (Boolean) -> Unit,
     onOpenAbout: () -> Unit,
     onFactoryReset: () -> Unit,
@@ -118,21 +118,21 @@ fun SettingsScreen(
                             label = "Procedural Audio Synthesizer",
                             description = "Real-time algorithmic sound effects via AudioTrack",
                             checked = settings.soundEnabled,
-                            onCheckedChange = { onUpdateSettings(settings.copy(soundEnabled = it)) }
+                            onCheckedChange = { enabled -> onUpdateSettings { it.copy(soundEnabled = enabled) } }
                         )
 
                         ToggleRow(
                             label = "Haptic Vibrations",
                             description = "Tactile confirmation for mining taps and trades",
                             checked = settings.hapticsEnabled,
-                            onCheckedChange = { onUpdateSettings(settings.copy(hapticsEnabled = it)) }
+                            onCheckedChange = { enabled -> onUpdateSettings { it.copy(hapticsEnabled = enabled) } }
                         )
 
                         ToggleRow(
                             label = "Reduced Visual Motion",
                             description = "Minimize animations, transitions, and pulsing",
                             checked = settings.reducedMotion,
-                            onCheckedChange = { onUpdateSettings(settings.copy(reducedMotion = it)) }
+                            onCheckedChange = { enabled -> onUpdateSettings { it.copy(reducedMotion = enabled) } }
                         )
 
                         ToggleRow(
@@ -167,13 +167,13 @@ fun SettingsScreen(
                             val isCompact = settings.numberFormat == NumberFormatPreference.COMPACT_SUFFIX
                             TycoonButton(
                                 text = "COMPACT (1.25M)",
-                                onClick = { onUpdateSettings(settings.copy(numberFormat = NumberFormatPreference.COMPACT_SUFFIX)) },
+                                onClick = { onUpdateSettings { it.copy(numberFormat = NumberFormatPreference.COMPACT_SUFFIX) } },
                                 style = if (isCompact) ButtonStyle.PRIMARY else ButtonStyle.SECONDARY,
                                 modifier = Modifier.weight(1f)
                             )
                             TycoonButton(
                                 text = "SCIENTIFIC (1.2e6)",
-                                onClick = { onUpdateSettings(settings.copy(numberFormat = NumberFormatPreference.SCIENTIFIC)) },
+                                onClick = { onUpdateSettings { it.copy(numberFormat = NumberFormatPreference.SCIENTIFIC) } },
                                 style = if (!isCompact) ButtonStyle.PRIMARY else ButtonStyle.SECONDARY,
                                 modifier = Modifier.weight(1f)
                             )

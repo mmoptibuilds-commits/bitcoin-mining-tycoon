@@ -48,7 +48,7 @@ fun MineScreen(
     onQuickSell: (Int) -> Unit,
     modifier: Modifier = Modifier,
     onToggleAutoSell: () -> Unit = {},
-    onSetAutoSellThreshold: (BigDecimal) -> Unit = {},
+    onSetAutoSellThreshold: suspend (BigDecimal) -> Boolean = { false },
     onClaimWindfall: (String) -> Unit = {},
     onDismissAchievement: () -> Unit = {},
     onCollectOfflineReward: () -> Unit = {},

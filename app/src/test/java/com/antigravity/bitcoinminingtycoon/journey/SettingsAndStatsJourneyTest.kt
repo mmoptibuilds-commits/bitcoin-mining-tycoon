@@ -71,7 +71,7 @@ class SettingsAndStatsJourneyTest {
             reducedMotion = true,
             numberFormat = NumberFormatPreference.SCIENTIFIC
         )
-        viewModel.onUpdateSettings(updated)
+        viewModel.onUpdateSettings { updated }
         advanceUntilIdle()
 
         val persisted = repo.gameState.value.settings
