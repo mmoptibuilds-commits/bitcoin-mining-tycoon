@@ -3,6 +3,9 @@ package com.antigravity.bitcoinminingtycoon.engine
 import com.antigravity.bitcoinminingtycoon.content.DailyRewards
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.model.GameState
+import com.antigravity.bitcoinminingtycoon.model.PendingOfflineSummary
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -82,6 +85,75 @@ class OfflineDailyTest {
             .add(EconomyEngine.calculateMinedBtc(baseRate, 5.0))
 
         assertEquals(0, expected.compareTo(report.minedBtc))
+    }
+
+    @Test
+    fun offlineReportHashrateIsTimeWeightedAcrossEventExpiry() {
+        val state = GameState(
+            miners = mapOf(Miners.ALL[0].id to 5L),
+            activeEvents = listOf(
+                com.antigravity.bitcoinminingtycoon.model.ActiveEventState(
+                    eventId = "bull_run",
+                    expiresAtWallMillis = 1_005_000L,
+                    multiplier = 2.0
+                )
+            )
+        )
+        val report = OfflineEngine.calculateOfflineProgress(state, 1_000_000L, 1_010_000L)
+        val eventRate = EconomyEngine.calculateEffectiveHashrate(state)
+        val baseRate = EconomyEngine.calculateEffectiveHashrate(state.copy(activeEvents = emptyList()))
+        val expectedAverage = eventRate.multiply(BigDecimal("5"))
+            .add(baseRate.multiply(BigDecimal("5")))
+            .divide(BigDecimal("10"))
+
+        assertEquals(0, expectedAverage.compareTo(requireNotNull(report.effectiveHashrate)))
+    }
+
+    @Test
+    fun persistedOfflineSummaryRetainsItsMeasuredHashrate() {
+        val state = GameState(miners = mapOf(Miners.ALL.first().id to 5L))
+        val report = OfflineEngine.calculateOfflineProgress(state, 1_000_000L, 1_060_000L)
+        val summary = OfflineEngine.applyOfflineReward(state, report).pendingOfflineSummary
+        val serialized = Json { encodeDefaults = true }
+            .encodeToString(PendingOfflineSummary.serializer(), requireNotNull(summary))
+
+        assertTrue(
+            serialized.contains("\"averageEffectiveHashrate\":\"${requireNotNull(report.effectiveHashrate).toPlainString()}\"")
+        )
+    }
+
+    @Test
+    fun mergedOfflineSummaryKeepsActualDurationAndWeightedHashrate() {
+        val start = 1_000_000L
+        val intervalMillis = (OfflineEngine.MAX_OFFLINE_SECONDS * 1000.0).toLong()
+        val initial = GameState(
+            miners = mapOf(Miners.ALL.first().id to 5L),
+            lastSaveWallMillis = start
+        )
+        val firstReport = OfflineEngine.calculateOfflineProgress(initial, start, start + intervalMillis)
+        val afterFirst = OfflineEngine.applyOfflineReward(initial, firstReport)
+        val secondStart = firstReport.creditedThroughWallMillis
+        val secondEnd = secondStart + intervalMillis
+        val secondState = afterFirst.copy(
+            activeEvents = listOf(
+                com.antigravity.bitcoinminingtycoon.model.ActiveEventState(
+                    eventId = "bull_run",
+                    expiresAtWallMillis = secondStart + intervalMillis / 2,
+                    multiplier = 2.0
+                )
+            )
+        )
+        val secondReport = OfflineEngine.calculateOfflineProgress(secondState, secondStart, secondEnd)
+        val combined = OfflineEngine.applyOfflineReward(secondState, secondReport)
+        val summary = requireNotNull(combined.pendingOfflineSummary)
+        val expectedRate = requireNotNull(firstReport.effectiveHashrate).multiply(BigDecimal.valueOf(firstReport.durationSeconds))
+            .add(requireNotNull(secondReport.effectiveHashrate).multiply(BigDecimal.valueOf(secondReport.durationSeconds)))
+            .divide(BigDecimal.valueOf(firstReport.durationSeconds + secondReport.durationSeconds), com.antigravity.bitcoinminingtycoon.util.GameNumber.MATH_CONTEXT)
+        val serialized = Json { encodeDefaults = true }
+            .encodeToString(PendingOfflineSummary.serializer(), summary)
+
+        assertEquals(firstReport.durationSeconds + secondReport.durationSeconds, summary.durationSeconds, 0.001)
+        assertTrue(serialized.contains("\"averageEffectiveHashrate\":\"${expectedRate.toPlainString()}\""))
     }
 
     @Test

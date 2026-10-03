@@ -38,7 +38,8 @@ data class PowerEnergySample(
 data class PendingOfflineSummary(
     val durationSeconds: Double,
     val creditedBtc: String,
-    val creditedAtWallMillis: Long
+    val creditedAtWallMillis: Long,
+    val averageEffectiveHashrate: String? = null
 )
 
 @Serializable

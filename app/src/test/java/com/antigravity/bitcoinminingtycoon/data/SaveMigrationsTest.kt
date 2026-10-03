@@ -20,6 +20,7 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.math.BigDecimal
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class SaveMigrationsTest {
 
@@ -141,6 +142,49 @@ class SaveMigrationsTest {
         assertEquals("0.0000000125", result.save.autoSellPendingBtc)
         assertTrue(result.save.autoSellEnabled)
         assertTrue(result.recoveryWarnings.isEmpty())
+    }
+
+    @Test
+    fun schemaThreeAcceptsExplicitNullPendingOfflineSummaryFromCurrentWriter() {
+        val result = SaveMigrations.migrate(
+            """{"schemaVersion":3,"btc":"0.5","pendingOfflineSummary":null}"""
+        ) as SaveMigrationResult.Ready
+
+        assertEquals(null, result.save.pendingOfflineSummary)
+        assertTrue(result.recoveryWarnings.isEmpty())
+    }
+
+    @Test
+    fun schemaThreeLegacyOfflineSummaryWithoutAverageHashrateRemainsValid() {
+        val result = SaveMigrations.migrate(
+            """{"schemaVersion":3,"btc":"0.5","pendingOfflineSummary":{"durationSeconds":60.0,"creditedBtc":"0.1","creditedAtWallMillis":100000}}"""
+        ) as SaveMigrationResult.Ready
+        val serialized = Json { encodeDefaults = true }.encodeToString(GameSave.serializer(), result.save)
+
+        assertTrue(result.recoveryWarnings.isEmpty())
+        assertTrue(serialized.contains("\"averageEffectiveHashrate\":null"))
+    }
+
+    @Test
+    fun schemaThreeAcceptsMergedOfflineSummaryLongerThanOneOfflineSession() {
+        val result = SaveMigrations.migrate(
+            """{"schemaVersion":3,"btc":"0.5","pendingOfflineSummary":{"durationSeconds":86400.0,"creditedBtc":"0.2","creditedAtWallMillis":100000,"averageEffectiveHashrate":"1000"}}"""
+        ) as SaveMigrationResult.Ready
+        val serialized = Json { encodeDefaults = true }.encodeToString(GameSave.serializer(), result.save)
+
+        assertTrue(result.recoveryWarnings.isEmpty())
+        assertTrue(serialized.contains("\"durationSeconds\":86400.0"))
+        assertTrue(serialized.contains("\"averageEffectiveHashrate\":\"1000\""))
+    }
+
+    @Test
+    fun invalidOfflineSummaryHashrateIsReportedForCheckpointedRepair() {
+        val result = SaveMigrations.migrate(
+            """{"schemaVersion":3,"btc":"0.5","pendingOfflineSummary":{"durationSeconds":60.0,"creditedBtc":"0.1","creditedAtWallMillis":100000,"averageEffectiveHashrate":"NaN"}}"""
+        ) as SaveMigrationResult.Ready
+
+        assertTrue(result.recoveryWarnings.contains("Invalid pending offline summary"))
+        assertEquals(null, result.save.pendingOfflineSummary)
     }
 
     @Test

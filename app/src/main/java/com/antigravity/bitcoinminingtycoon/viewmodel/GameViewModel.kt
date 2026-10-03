@@ -124,7 +124,7 @@ class GameViewModel(
             offlineReport = state.pendingOfflineSummary?.let {
                 com.antigravity.bitcoinminingtycoon.engine.OfflineReport(
                     durationSeconds = it.durationSeconds,
-                    effectiveHashrate = BigDecimal.ZERO,
+                    effectiveHashrate = it.averageEffectiveHashrate?.let(::BigDecimal),
                     minedBtc = BigDecimal(it.creditedBtc),
                     creditedThroughWallMillis = it.creditedAtWallMillis
                 )
