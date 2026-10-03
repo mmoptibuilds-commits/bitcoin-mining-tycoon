@@ -35,38 +35,66 @@ bash ./gradlew assembleRelease
 adb devices -l
 ~~~
 
-## M7 audit record — 2026-10-01
+## M7 audit record — 2026-10-03
 
-The source/package audit passed; the complete emulator acceptance did not run. Schema-3 conservation fix commit `bd72fb7bc9afc9aec5c51b5d76be7179cb390d6c` is pushed to `v1.2`; fresh read-only review of the exact commit found no actionable source findings. The post-review `bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks` run passed all 38 XML suites / 187 tests, 0 failures/errors/skips. The refreshed focused matrix passed 121 tests across 17 suites covering adversarial values, migrations, repository/ViewModel concurrency, offline/reward/event/prestige behavior, content integrity, reference pacing, six JVM journey classes and Auto-Sell conservation. Regression cases reproduce and close stale settings snapshots, missing Auto-Sell threshold controls, invalid market checkpoint gaps, foreground rollback extension, immediate save-anchor rollback, inconsistent sale proceeds and sub-cent BTC loss. Current saves use schema 3; schema-1/2 migrations preserve prior fields and initialize the pending Auto-Sell queue safely. Final full+build and focused output is retained in `artifacts/m7/final-validation.log` and `artifacts/m7/final-focused-validation.log`; the current connected-device attempt is in `artifacts/m7/post-conservation-connected-validation.log`. `compileDebugAndroidTestKotlin`, `lintDebug`, `lintRelease`, `assembleDebug` and minified `assembleRelease` passed. `connectedDebugAndroidTest` compiled and packaged current instrumentation, then ended with `DeviceException: No connected devices!`; `/workspace/.android-sdk/platform-tools/adb devices -l` is empty, and there are no API31/API36 AVDs, emulator executable, Android Studio executable or `/dev/kvm` here. Thus Compose assertions compiled but did not execute. The market details target has a Compose `assertHeightIsAtLeast(48.dp)` assertion, compiled but not device-run.
+The v1.2 redesign implementation is complete on the dedicated branch. Final validation includes 38 JVM XML suites, the API31 connected Compose suite, a minified release install/update smoke, and a schema-1 old-save migration. The results below keep host limitations separate from checks that passed.
 
-Exact post-review commands:
+- Full JVM validation: `bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks` passed 194 tests in 38 suites, 0 failures/errors/skips. The exact post-rate-fix result is retained at `artifacts/m7/final-offline-rate-validation.log`.
+- API31 connected suite: `bash ./gradlew --no-daemon --console=plain connectedDebugAndroidTest` passed 26 tests, 0 failures/errors/skips on `emulator-5554` (API31, x86_64, software TCG). Results are in `artifacts/m7/api31-connected-final-offline-rate-fix.log` and `app/build/outputs/androidTest-results/connected/debug/TEST-emulator-5554 - 12-_app-.xml`.
+- Build/lint validation: `bash ./gradlew --no-daemon --console=plain lintDebug lintRelease assembleDebug assembleRelease compileDebugAndroidTestKotlin` passed after the migration and offline-summary fixes. Current release archive hash and signer are recorded in `RELEASE_CHECKLIST.md`.
+- Migration fix: the schema-3 serializer emits `pendingOfflineSummary: null`; migration now treats JSON null as absent. The offline report also computes a time-weighted hashrate across event-expiry segments and persists that value in the optional `averageEffectiveHashrate` field. Existing pending summaries without the field remain valid and render “Not recorded”; merged summaries retain total duration (bounded at 100 years) and a duration-weighted rate. The 12-hour earnings cap remains per offline session.
+- API31 update profile: the locally rebuilt v1.0 release and v1.2 release share certificate SHA-256 `e8c7f74bc7c2e017e55880394510c4c2df728e6cb8e6cd45bb4835a89eb84932`. A serializer-generated schema-1 fixture was staged in the v1.0 app, the app was updated in place using `adb install -r`, and the resulting schema-3 save retained balances, miners, infrastructure, prestige points/nodes, onboarding and settings. No uninstall/data clear occurred during the profile. The v1.2 release was relaunched and the facility screen plus offline report were inspected.
+- API36 limitation: the installed x86_64 image could not start with default acceleration because `/dev/kvm` is absent. Supported `-accel off -no-window` options started a TCG process, but its framework did not finish booting after more than four minutes at full CPU. No API36 app install/launch is claimed. Android Studio/Device Manager are absent; API31 was run through the native emulator/ADB CLI.
+- External release limitation: GitHub release-history lookup returned `Forbidden`; no tags exist. Version code `2` is above the tracked v1.0 code `1`, but externally distributed higher codes or signing identities remain unknown. The local release APK is debug-key signed and is not a public release artifact.
+
+Exact Linux validation commands from the repository root:
 
 ~~~bash
+export JAVA_HOME=/workspace/.java17-root/usr/lib/jvm/java-17-openjdk-amd64
+export ANDROID_HOME=/workspace/.android-sdk
+export ANDROID_SDK_ROOT=/workspace/.android-sdk
+export ANDROID_USER_HOME=/workspace/.android-user
+export ANDROID_AVD_HOME=/workspace/.android-user/avd
+export PATH=$JAVA_HOME/bin:/workspace/.android-sdk/platform-tools:/workspace/.android-sdk/emulator:/workspace/.android-sdk/build-tools/36.0.0:$PATH
+emulator -avd BMT_API31 -port 5554 -accel off -no-window -no-snapshot -no-audio -no-boot-anim
 bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks
-bash ./gradlew --no-daemon --console=plain testDebugUnitTest --tests '*AdversarialBugHuntTest*' --tests '*SaveMigrationsTest*' --tests '*GameRepositoryTest*' --tests '*GameViewModelTest*' --tests '*OfflineDailyTest*' --tests '*EventAchievementTest*' --tests '*PrestigeEngineTest*' --tests '*GameEngineTest*' --tests '*MarketEngineTest*' --tests '*ContentIntegrityTest*' --tests '*ReferencePacingSimulationTest*' --tests '*EventsAndAchievementsJourneyTest*' --tests '*HardwareBulkJourneyTest*' --tests '*MarketSellJourneyTest*' --tests '*OfflineDailyJourneyTest*' --tests '*PrestigeJourneyTest*' --tests '*SettingsAndStatsJourneyTest*' --rerun-tasks
-bash ./gradlew --no-daemon --console=plain compileDebugAndroidTestKotlin lintDebug lintRelease assembleDebug assembleRelease
+bash ./gradlew --no-daemon --console=plain lintDebug lintRelease assembleDebug assembleRelease compileDebugAndroidTestKotlin
 bash ./gradlew --no-daemon --console=plain connectedDebugAndroidTest
 ~~~
 
-The final minified local release APK reports application ID `com.antigravity.bitcoinminingtycoon`, versionName `1.2.0`, versionCode `2`, minSdk `31`, target/compile `36`, save schema `3` and `balanceRulesVersion=2`, and label `Bitcoin Mining Tycoon`. The release manifest keeps `allowBackup=false`, launcher/round icon references and portrait MainActivity; the packaged permission list contains VIBRATE plus the app-scoped dynamic receiver permission, with no INTERNET permission. Release certificate SHA-256 is `e8c7f74bc7c2e017e55880394510c4c2df728e6cb8e6cd45bb4835a89eb84932`, matching the locally rebuilt `origin/v1.0` minified snapshot. Both APKs use the workspace debug key; this is not a public signing identity. The final M7 APK SHA-256 is `337d43fc815ab1783e149cef053965b685728fd254007c6ca27d3a348511b9f5`. GitHub release-history lookup returned `Forbidden`; no tags exist and `main`/`v1.0` remain code 1, so any separately distributed higher code is unknown.
+The in-place update profile used these Android commands after API31 had booted; it never called `adb uninstall`, `pm clear`, or `install -t`:
+
+~~~bash
+adb -s emulator-5554 install -r -d artifacts/m0/v1.0-debug.apk
+adb -s emulator-5554 shell am start -n com.antigravity.bitcoinminingtycoon/.MainActivity
+adb -s emulator-5554 shell am force-stop com.antigravity.bitcoinminingtycoon
+cat artifacts/m7/api31-v1.0-save-before-update.json | adb -s emulator-5554 shell run-as com.antigravity.bitcoinminingtycoon tee /data/user/0/com.antigravity.bitcoinminingtycoon/files/datastore/game_save.json >/dev/null
+adb -s emulator-5554 install -r artifacts/m0/v1.0-release.apk
+adb -s emulator-5554 shell am start -n com.antigravity.bitcoinminingtycoon/.MainActivity
+adb -s emulator-5554 install -r app/build/outputs/apk/release/app-release.apk
+adb -s emulator-5554 shell am start -n com.antigravity.bitcoinminingtycoon/.MainActivity
+adb -s emulator-5554 shell dumpsys package com.antigravity.bitcoinminingtycoon
+adb -s emulator-5554 shell am force-stop com.antigravity.bitcoinminingtycoon
+adb -s emulator-5554 shell am start -n com.antigravity.bitcoinminingtycoon/.MainActivity
+~~~
 
 ### Nine documented journeys
 
 Each file in `journeys/` is a manual Android journey. JVM tests and compiled Compose assertions are supporting evidence, not proof the manual journey ran.
 
-| Journey | Offline evidence | API31/API36 device result |
+| Journey | Offline evidence | API31/API36 result |
 |---|---|---|
-| 01 First session | Mine/teaching/facility Compose test sources compile; economy/ViewModel logic is covered by JVM tests. | Not run: no emulator, screenshots or migrated/clean visual inspection. |
-| 02 Market/sell | `MarketSellJourneyTest` plus `MarketEngineTest` passed in the suite. | Not run: sell previews and automation were not exercised on screen. |
-| 03 Hardware/bulk | `HardwareBulkJourneyTest`, economy/content/purchase tests passed; M5 hardware/upgrade Compose test sources compile. | Not run: no screen/scene, rapid-buy or visible deficit-remedy inspection. |
-| 04 Offline/daily/events | `OfflineDailyJourneyTest`, `OfflineDailyTest` and event/reward tests passed, including clock rollback, sub-minute elapsed time, 12-hour cap and event expiry splitting. | Not run: repeat dialog/relaunch/process-death collection and screenshots need an emulator. |
-| 05 Prestige/tree | `PrestigeJourneyTest`, engine/ViewModel tests passed; reset/preserved copy Compose source compiles. | Not run: cancellation, duplicate confirm and live facility reset were not observed. |
-| 06 Settings/accessibility | `SettingsAndStatsJourneyTest` passed; Settings/About Compose source compiles. | Not run: font scale 1.5, compact/tall, TalkBack, insets/back and live persistence remain unobserved. |
-| 07 Process death | Repository/ViewModel adversarial tests passed for serialized changes, purchases/claims and tick ordering. | Not run: no force-stop/relaunch or logcat/process-death observation. |
-| 08 v1.0 save upgrade | All old serializer fixtures/migration/recovery JVM tests passed; local minified v1.0 and v1.2 packages have matching debug certificates. | Not run: no install -r profile, retained save/settings/claim check or process death after update. |
-| 09 App identity | `IdentityUpdateTest` compiles; `aapt`, `apksigner`, merged manifest and APK resources were inspected; authored icon vectors and fallback raster were inspected locally. | Not run: launcher/app drawer, themed/round mask, App Info, recents, splash transition and About were not observed. |
+| 01 First session | Economy/ViewModel rules pass JVM tests. | API31 `FirstSessionLoopTest` passes mine→sell→first machine; migrated facility screenshot exists. API36, TalkBack and large-text checks remain. |
+| 02 Market/sell | `MarketSellJourneyTest` and market engine tests pass. | API31 first-session sell and threshold-editor UI assertions pass; full guided market automation and API36 remain. |
+| 03 Hardware/bulk | `HardwareBulkJourneyTest`, content and purchase JVM tests pass. | API31 UI checks reach all 20 tiers and explain cash/power/cooling remedies; rapid-buy pacing and API36 remain. |
+| 04 Offline/daily/events | Clock rollback, fractional intervals, 12-hour per-interval cap, event expiry and duplicate-claim rules pass JVM tests. | API31 offline/daily/event sheets pass; force-stop/relaunch collection remains. Saved offline rate is time-weighted and legacy unknown rates are labeled unavailable. |
+| 05 Prestige/tree | `PrestigeJourneyTest`, engine and ViewModel tests pass. | API31 prestige reset/preserved progression preview is visible; applying/canceling every path and API36 remain. |
+| 06 Settings/accessibility | `SettingsAndStatsJourneyTest` passes. | API31 settings persistence, stats coverage and About package metadata assertions pass; font scale 1.5, TalkBack, insets/back and API36 remain. |
+| 07 Process death | Repository/ViewModel adversarial tests pass for serialized purchases/claims and tick ordering. | Force-stop/relaunch recovery and duplicate-claim lifecycle remain unverified. |
+| 08 v1.0 save upgrade | Schema-1 fixtures, migrations and recovery tests pass. | API31 local v1.0 release→v1.2 release `install -r` preserved schema-1 balance/hardware/settings/prestige data and migrated to schema 3; no process-death-after-update claim. |
+| 09 App identity | `IdentityUpdateTest`, `aapt`, `apksigner`, merged manifest and resources pass inspection; authored icon layers were inspected locally. | API31 About reports installed metadata and release launches on facility home. Launcher masks, App Info, recents, splash transition and API36 remain. |
 
-No screenshots or emulator traces were produced. Do not mark these journeys passed from the Gradle build. Run them sequentially on API31 and API36 after Android Studio Device Manager/system images or another supported emulator host is available. Never uninstall or clear the update profile.
+API31 facility/update screenshots and the connected-test report are under ignored `artifacts/m7/` and `app/build/outputs/androidTest-results/connected/debug/`. The 70-second force-stop/relaunch restored the saved offline report and its average rate; collecting it through the full process-death UI lifecycle and duplicate-claim handling remain outside the connected suite. The suite also does not prove TalkBack, 1.5 font scale, tactile vibration, launcher/App Info/recents or API36 behavior. Complete those checks on a hardware-accelerated API36 host or Android Studio Device Manager. Never uninstall or clear the dedicated update profile.
 
 ## Evidence layers
 

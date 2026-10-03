@@ -1,59 +1,38 @@
 # v1.2 local APK release checklist
 
-Scope: emulator-verified sideload/test APK. No Play Store publishing requirement. Documentation preparation is not a release candidate.
+Scope: local emulator validation only. No public distribution or store publishing is authorized by this checklist.
 
-## Current disposition — 2026-10-01
+## Current disposition — 2026-10-03
 
-**Not release-ready.** The local minified v1.2 APK is built and statically inspected, but it has not been installed or launched on an emulator. The complete JVM run passed 187 tests; the refreshed 17-suite release-risk matrix passed 121 tests. Instrumentation sources compile; lintDebug/lintRelease and debug/release assembly pass. `connectedDebugAndroidTest` fails at device selection with `No connected devices!`. There are no API31/API36 AVDs, Android Studio/Device Manager, emulator executable or `/dev/kvm`. No screenshot, TalkBack/font-scale observation, process-death flow or signed in-place save update was performed.
+**Implementation complete; public release acceptance remains partial.** The 194-test JVM suite and 26-test API31 connected Compose suite pass. A minified local APK launches on API31, and a same-certificate v1.0→v1.2 `adb install -r` update preserved a seeded schema-1 save without uninstall or data clear. The API31 TCG emulator is usable; API36 did not finish framework startup without KVM. TalkBack, large text, tactile feel, launcher/App Info/recents and splash-transition observation remain. External release history could not be checked (`Forbidden`), and the local APK is debug-key signed. Do not distribute it publicly.
 
-The package is `com.antigravity.bitcoinminingtycoon` versionName `1.2.0`/versionCode `2`, current save schema `3`, balance rules `2`. The final schema-3 local release APK SHA-256 is `337d43fc815ab1783e149cef053965b685728fd254007c6ca27d3a348511b9f5`. Its debug-key certificate fingerprint matches a minified APK built from the preserved `origin/v1.0` source snapshot; this does not establish compatibility with a separately distributed user install. GitHub release-history lookup returned `Forbidden`, so an external higher version code remains unverified. See `CURRENT_STATE.md` and `TEST_STRATEGY.md` for command logs and journey-by-journey disposition.
+The package is `com.antigravity.bitcoinminingtycoon`, versionName `1.2.0`/versionCode `2`, current save schema `3`, and balance rules `2`. Final local release APK SHA-256: `376eb4241f878675a3972bd152e0e398b9e64fc866ccd37c6e1bfaa4453d1035`. Signer SHA-256: `e8c7f74bc7c2e017e55880394510c4c2df728e6cb8e6cd45bb4835a89eb84932`. This matches the locally rebuilt v1.0 release snapshot, not a separately distributed user install. See `CURRENT_STATE.md` and `TEST_STRATEGY.md` for command output and journey evidence.
 
 ## Product and data
 
-- [ ] F01–F25 acceptance matrix satisfied with actual evidence.
-- [x] Reference pacing/seeded variance/two-run acceleration verified by deterministic simulation: first prestige 27m25s and Efficient Silicon next run 8m05s.
-- [ ] No known release-blocking crash, data loss, incorrect economy or inaccessible core action.
-- [x] v1 serializer fixtures, supported migration fields, corrupt checkpoint and unsupported-schema read-only behavior pass JVM tests.
-- [ ] Actual signed v1→v1.2 in-place emulator update preserves assets/settings/claim history; no `adb install -r` profile was run.
-- [x] Critical transaction ordering, concurrent reward claims, prestige preview/apply and reset accounting have JVM coverage.
-- [ ] Force-stop/relaunch process-death journey and UI duplicate-claim/prestige cancellation are not device-verified.
+- [x] Deterministic reference pacing and next-run acceleration: first prestige at 27m25s; Efficient Silicon follow-up at 8m05s.
+- [x] Schema-1/2 migration, unsupported/corrupt-save recovery, checkpointing, transaction ordering, reward-claim concurrency, offline boundaries, event expiry and prestige bookkeeping have JVM regression coverage.
+- [x] Seeded schema-1 profile updated locally from v1.0 release to v1.2 release in place. Balances, miners, infrastructure, prestige points/nodes, onboarding and settings survived; no uninstall or data clear occurred.
+- [x] A 70-second force-stop/relaunch restored the saved offline report, average hashrate and credited BTC on the same API31 profile.
+- [ ] Complete a manual collect/relaunch/duplicate-claim lifecycle on the migrated profile; broad release journey acceptance remains partial.
+- [ ] Verify the actual certificate/version history of any externally installed user copy. GitHub release lookup returned `Forbidden`.
 
 ## Native experience
 
-- [ ] First-time and migrated flows, all hardware/upgrade/system journeys.
-- [ ] Facility stages and purchase/prestige/reset transitions verified.
-- [ ] Compact/tall font1.0/1.5, TalkBack, 48dp targets, reduced motion, back/insets.
-- [ ] Real haptics API/settings/capability handling; no claim of physical tactile testing.
-- [x] Custom adaptive/round/themed icon and density fallbacks are implemented; no template robot remains in referenced resources.
-- [ ] Emulator confirms launcher/app drawer/themed and round masks, App Info and recents identity.
-- [x] API31 system-splash theme, icon and graphite window background are configured without another Activity or delay.
-- [ ] Cold/warm launch proves there is no duplicate splash or white flash; unavailable without emulator.
-- [x] About sources actual version/build metadata from PackageManager; accuracy/reset/cancel have source tests.
-- [ ] Emulator confirms Settings/About behavior, font scaling, TalkBack and reset usability.
+- [x] API31 Compose coverage exercises the first Mine→Bitcoin→sell→cash→machine loop, facility navigation, all 20 hardware tiers, upgrade groups, power/cooling remedies, stats, settings, reward/event/prestige sheets and recovery UI.
+- [x] Facility-first home, ten stage scenes, progressive disclosure, bounded feedback, and native haptics/settings are implemented; rapid-tap and all-scene Compose checks pass on API31.
+- [x] Adaptive/round/themed icon resources, density fallbacks, API31 system-splash theme, package identity and About metadata are implemented and packaged.
+- [ ] Inspect launcher masks, App Info, recents and cold/warm splash on a booted API36 target. Android Studio/Device Manager is absent; the API36 TCG framework did not boot.
+- [ ] Observe TalkBack, 1.5 font scale, compact/tall layout, native insets/back, and physical vibration feel. These are not proven by source assertions or software TCG.
 
-## Tests and release artifact
+## Tests and artifact
 
-- [x] Post-review full JVM/migration/content/simulation suite passed (187 tests, 0 failures/errors/skips); focused release-risk suite passed 121 tests; lintDebug/lintRelease pass with 12 warnings each and 0 errors.
-- [x] Relevant Compose instrumentation sources compile, including identity, settings, hardware, statistics, reward/prestige and facility coverage.
-- [ ] Connected Compose instrumentation is not executed: `connectedDebugAndroidTest` reports `DeviceException: No connected devices!`.
-- [ ] All nine journeys on API31 and API36 configured target class (or new target if changed) with evidence; unsupported check documented as blocker.
-- [x] Minification/resource shrinking enabled; minified release APK builds and R8 mapping/resources are present.
-- [ ] Install/launch the minified APK on API31/API36 and rerun release flows; no device is available.
-- [x] Merged manifest has no INTERNET permission, `allowBackup=false`, no debug menu or test helpers in the release APK; only VIBRATE plus the app-scoped receiver permission is present.
-- [ ] Release serializer/data retention and launcher/splash behavior have not been smoke-tested after R8 on a device.
-- [ ] Rapid tapping/large scenes/background/lifecycle checked; profiler evidence for unresolved jank/memory concern.
-- [ ] VersionName `1.2.0`/code `2` is packaged and exceeds the tracked v1.0 code `1`; reconcile with external distribution history before release because GitHub release lookup is forbidden here.
-- [x] Application/storage identity is unchanged; APK SHA-256, schema `3`, balance rules `2`, toolchain and local debug certificate fingerprint are recorded.
-- [ ] Record target emulator/API and install/update results; no emulator/API runtime evidence exists.
+- [x] `testDebugUnitTest --rerun-tasks`: 194 tests / 38 XML suites, 0 failures, errors or skips.
+- [x] `connectedDebugAndroidTest`: 26 API31 tests, 0 failures, errors or skips (`emulator-5554`, x86_64 software TCG).
+- [x] `lintDebug`, `lintRelease`, `assembleDebug`, `assembleRelease`, and `compileDebugAndroidTestKotlin` passed. Each lint task reports 12 warnings and 0 errors.
+- [x] Minified release APK installs and launches on API31. Package manifest has no INTERNET permission; `allowBackup=false`; storage/package identity is preserved.
+- [x] Signed same-key schema-1 update and schema-3 save inspection passed without uninstall/data clear. The 70-second offline return summary showed 188.376 seconds, 14,683,500 H/s average, and 0.1383009498 BTC.
+- [ ] API36 app install/launch, full manual process-death collection, accessibility and launcher/splash observations remain.
+- [ ] Resolve external distribution version/signing history and configure the production signing identity before any public release.
 
-## Audit and version history
-
-- [x] Scoped M1–M7 source and documentation commits are on v1.2; main/v1.0 and historical refs remain unchanged; no force push or history rewrite.
-- [x] Fresh independent read-only review of schema-3 source commit `bd72fb7bc9afc9aec5c51b5d76be7179cb390d6c` found no actionable source findings. Confirmed findings have regression tests and rerun evidence; documentation is recorded in this scoped ledger update.
-- [x] CURRENT_STATE, TEST_STRATEGY, CHANGELOG and this checklist record delivered work and remaining constraints accurately.
-- [ ] Tag only the accepted verified release commit when release-tag scope is authorized; do not tag this docs preparation.
-- [ ] Future version branches begin from accepted release commit and retain earlier versions.
-
-Physical vibration feel, phone launcher variations and real-phone performance remain unverified under the chosen emulator-only setup. If the original installed APK certificate is unavailable, the user's real update compatibility remains unverified even when same-key emulator proof passes. Do not call those checks complete.
-
-Google Play assets, store policy, AAB and publishing are a separate future project. Source rollback is not a guaranteed save downgrade; follow SAVE_COMPATIBILITY.
+Exact final validation commands, device setup, fixture staging and journey disposition are in `TEST_STRATEGY.md`. The API31 AVD ran through the supported emulator/ADB CLI fallback because this Linux workspace has no Android Studio/Device Manager or `/dev/kvm`. Physical USB is not required. No public tag was created. Google Play assets, AAB and publishing are separate future work. Source rollback is not a guaranteed save downgrade; follow `SAVE_COMPATIBILITY.md`.
