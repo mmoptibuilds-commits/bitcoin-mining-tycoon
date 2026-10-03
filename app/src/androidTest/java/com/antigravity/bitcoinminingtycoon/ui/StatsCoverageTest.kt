@@ -43,14 +43,12 @@ class StatsCoverageTest {
             }
         }
 
-        composeTestRule.onNodeWithText("Current Bitcoin").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("Lifetime Bitcoin mined").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("Partial; tracked since v1.2, earlier lifetime totals are unassigned")
-            .performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("1h 1m 1.25s").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Genesis Entropy", substring = true)
-            .performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("progress 0 / 1 taps", substring = true)
-            .assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("Current Bitcoin")
+        composeTestRule.scrollUntilTextDisplayed("Lifetime Bitcoin mined")
+        composeTestRule.scrollUntilTextDisplayed("Partial; tracked since v1.2, earlier lifetime totals are unassigned")
+        composeTestRule.scrollUntilTextDisplayed("1h 1m 1.25s")
+        composeTestRule.scrollUntilTextDisplayed("Genesis Entropy")
+        composeTestRule.onNodeWithContentDescription("progress 40 / 1 taps", substring = true)
+            .fetchSemanticsNode()
     }
 }

@@ -44,18 +44,21 @@ class SettingsResetAboutTest {
         assertTrue(harness.repository.gameState.value.batteryFriendlyAnimations)
         assertEquals(SettingsState(), harness.repository.gameState.value.settings)
 
+        composeTestRule.scrollUntilContentDescriptionDisplayed("About Bitcoin Mining Tycoon")
         composeTestRule.onNodeWithContentDescription("About Bitcoin Mining Tycoon").performClick()
-        composeTestRule.onNodeWithText("Native offline facility-management simulation.", substring = true)
-            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("About").assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed(
+            "Native offline facility-management simulation.",
+            substring = true
+        )
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        composeTestRule.onNodeWithText(context.packageName).assertIsDisplayed()
-        composeTestRule.onNodeWithText("${packageInfo.versionName} (${packageInfo.longVersionCode})")
-            .assertIsDisplayed()
-        composeTestRule.onNodeWithText(
+        composeTestRule.scrollUntilTextDisplayed(context.packageName)
+        composeTestRule.scrollUntilTextDisplayed("${packageInfo.versionName} (${packageInfo.longVersionCode})")
+        composeTestRule.scrollUntilTextDisplayed(
             if (packageInfo.versionName?.startsWith("1.2") == true) "V1.2 RELEASE NOTES" else "FEATURES IN THIS BUILD"
-        ).assertIsDisplayed()
+        )
     }
 
     @Test
@@ -78,12 +81,14 @@ class SettingsResetAboutTest {
         }
         composeTestRule.onNodeWithContentDescription("Settings").performClick()
 
+        composeTestRule.scrollUntilTextDisplayed("FACTORY RESET FACILITY")
         composeTestRule.onNodeWithText("FACTORY RESET FACILITY").performClick()
         composeTestRule.onNodeWithText("balances, machines, upgrades", substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText("CANCEL").performClick()
         assertEquals("0.1", harness.repository.gameState.value.btc)
         assertEquals(1L, harness.repository.gameState.value.miners["ancient_cpu"])
 
+        composeTestRule.scrollUntilTextDisplayed("FACTORY RESET FACILITY")
         composeTestRule.onNodeWithText("FACTORY RESET FACILITY").performClick()
         composeTestRule.onNodeWithText("YES, WIPE").performClick()
         composeTestRule.waitUntil(10_000) {

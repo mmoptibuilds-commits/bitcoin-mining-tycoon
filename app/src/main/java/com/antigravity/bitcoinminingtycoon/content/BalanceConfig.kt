@@ -44,6 +44,7 @@ object BalanceConfig {
     const val MARKET_HISTORY_INITIAL_USD = "50000"
     const val MARKET_INITIAL_STATS_USD = "50000"
     const val MARKET_TICK_SECONDS = 2.0
+    const val MAX_PENDING_OFFLINE_SUMMARY_SECONDS = 3_153_600_000.0 // 100 years; individual offline earnings remain capped at 12 hours.
     const val MARKET_BULL_EVENT_DELTA = 0.03
     const val MARKET_CRASH_EVENT_DELTA = -0.05
     const val MAX_OFFLINE_SECONDS = 43_200.0

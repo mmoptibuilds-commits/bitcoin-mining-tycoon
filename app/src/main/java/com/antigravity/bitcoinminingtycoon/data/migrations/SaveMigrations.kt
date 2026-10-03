@@ -16,6 +16,7 @@ import com.antigravity.bitcoinminingtycoon.util.NumberFormatPreference
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -145,13 +146,16 @@ object SaveMigrations {
                     warnings += "Invalid $key"
                 }
             }
-            root["pendingOfflineSummary"]?.let { item ->
+            root["pendingOfflineSummary"]?.takeUnless { it is JsonNull }?.let { item ->
                 val summary = item as? JsonObject
                 val duration = (summary?.get("durationSeconds") as? JsonPrimitive)?.doubleOrNull
                 val creditedBtc = summary?.string("creditedBtc")?.let(::validDecimal)
                 val creditedAt = (summary?.get("creditedAtWallMillis") as? JsonPrimitive)?.longOrNull
+                val rawHashrate = summary?.get("averageEffectiveHashrate")?.takeUnless { it is JsonNull }
+                val averageHashrate = summary?.string("averageEffectiveHashrate")?.let(::validDecimal)
                 if (summary == null || duration == null || !duration.isFinite() ||
-                    duration !in 0.0..BalanceConfig.MAX_OFFLINE_SECONDS || creditedBtc == null || creditedAt == null || creditedAt < 0L) {
+                    duration !in 0.0..BalanceConfig.MAX_PENDING_OFFLINE_SUMMARY_SECONDS || creditedBtc == null || creditedAt == null || creditedAt < 0L ||
+                    (rawHashrate != null && averageHashrate == null)) {
                     warnings += "Invalid pending offline summary"
                 }
             }
@@ -355,11 +359,14 @@ object SaveMigrations {
 
     private fun decodePendingOfflineSummary(element: JsonElement?): PendingOfflineSummary? {
         val root = element as? JsonObject ?: return null
-        val duration = root.finiteDouble("durationSeconds", Double.NaN, 0.0, BalanceConfig.MAX_OFFLINE_SECONDS)
+        val duration = root.finiteDouble("durationSeconds", Double.NaN, 0.0, BalanceConfig.MAX_PENDING_OFFLINE_SUMMARY_SECONDS)
         val btc = root.string("creditedBtc")?.let(::validDecimal) ?: return null
         val creditedAt = root.nonNegativeLong("creditedAtWallMillis", -1L)
+        val rawHashrate = root["averageEffectiveHashrate"]?.takeUnless { it is JsonNull }
+        val averageHashrate = root.string("averageEffectiveHashrate")?.let(::validDecimal)
         if (!duration.isFinite() || duration <= 0.0 || creditedAt < 0L) return null
-        return PendingOfflineSummary(duration, btc, creditedAt)
+        if (rawHashrate != null && averageHashrate == null) return null
+        return PendingOfflineSummary(duration, btc, creditedAt, averageHashrate)
     }
 
     private fun readEvents(element: JsonElement?): List<ActiveEventState> {

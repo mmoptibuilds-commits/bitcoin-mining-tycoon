@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.antigravity.bitcoinminingtycoon.ui.components.CoreMineButton
 import com.antigravity.bitcoinminingtycoon.ui.theme.BitcoinMiningTycoonTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,9 +40,10 @@ class CoreMineButtonFeedbackTest {
     @Test
     fun rapidTapsKeepTheParticleAnimationQueueAtTwentyFour() {
         composeTestRule.mainClock.autoAdvance = false
+        var receivedTaps = 0
         composeTestRule.setContent {
             BitcoinMiningTycoonTheme {
-                CoreMineButton(onMineClick = {})
+                CoreMineButton(onMineClick = { receivedTaps++ })
             }
         }
 
@@ -52,6 +54,7 @@ class CoreMineButtonFeedbackTest {
         val particleCount = composeTestRule
             .onAllNodesWithTag("mine-feedback-particle", useUnmergedTree = true)
             .fetchSemanticsNodes().size
+        assertEquals(40, receivedTaps)
         assertTrue("At most 24 live tap particles are kept, found $particleCount", particleCount <= 24)
     }
 }

@@ -50,7 +50,7 @@ fun OfflineReturnSheet(
     }
 
     val formattedBtc = NumberFormatter.formatBtc(report.minedBtc)
-    val formattedHashrate = NumberFormatter.formatHashrate(report.effectiveHashrate)
+    val formattedHashrate = report.effectiveHashrate?.let(NumberFormatter::formatHashrate) ?: "Not recorded"
 
     ModalBottomSheet(
         onDismissRequest = onCollect,

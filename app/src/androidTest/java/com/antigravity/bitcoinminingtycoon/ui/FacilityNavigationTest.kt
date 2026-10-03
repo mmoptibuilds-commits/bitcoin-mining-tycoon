@@ -83,7 +83,7 @@ class FacilityNavigationTest {
             harness.viewModel.uiState.value.saveReadiness == SaveReadiness.Ready
         }
 
-        composeTestRule.onNodeWithText("Your machines are working").assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("Your machines are working")
         composeTestRule.onNodeWithText("Make your first Bitcoin").assertDoesNotExist()
         assertEquals(settings, harness.repository.gameState.value.settings)
         assertEquals(true, harness.repository.gameState.value.onboardingCompleted)

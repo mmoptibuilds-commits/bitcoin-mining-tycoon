@@ -8,7 +8,7 @@ import java.math.BigDecimal
 
 data class OfflineReport(
     val durationSeconds: Double,
-    val effectiveHashrate: BigDecimal,
+    val effectiveHashrate: BigDecimal?,
     val minedBtc: BigDecimal,
     val lastSavedWallMillis: Long = 0L,
     val creditedThroughWallMillis: Long = 0L
@@ -59,23 +59,34 @@ object OfflineEngine {
             .sorted()
         var cursor = lastSavedWallMillis
         var minedBtc = BigDecimal.ZERO
+        var effectiveHashrateSeconds = BigDecimal.ZERO
         for (boundary in boundaries + endMillis) {
             val segmentMillis = boundary - cursor
             if (segmentMillis > 0L) {
                 val active = state.activeEvents.filter { it.expiresAtWallMillis > cursor }
                 val segmentState = state.copy(activeEvents = active)
                 val hashrate = offlineHashrate(segmentState)
+                val segmentSeconds = BigDecimal.valueOf(segmentMillis).movePointLeft(3)
+                effectiveHashrateSeconds = effectiveHashrateSeconds.add(
+                    hashrate.multiply(segmentSeconds, GameNumber.MATH_CONTEXT),
+                    GameNumber.MATH_CONTEXT
+                )
                 minedBtc = minedBtc.add(
-                    EconomyEngine.calculateMinedBtc(hashrate, segmentMillis / 1000.0),
+                    EconomyEngine.calculateMinedBtc(hashrate, segmentSeconds.toDouble()),
                     GameNumber.MATH_CONTEXT
                 )
             }
             cursor = boundary
         }
 
+        val averageEffectiveHashrate = effectiveHashrateSeconds.divide(
+            BigDecimal.valueOf(clampedDeltaSeconds),
+            GameNumber.MATH_CONTEXT
+        )
+
         return OfflineReport(
             durationSeconds = clampedDeltaSeconds,
-            effectiveHashrate = hashrateAtDeparture,
+            effectiveHashrate = averageEffectiveHashrate,
             minedBtc = minedBtc,
             lastSavedWallMillis = lastSavedWallMillis,
             creditedThroughWallMillis = currentWallMillis
@@ -107,13 +118,33 @@ object OfflineEngine {
         val priorSummary = state.pendingOfflineSummary
         val showSummary = report.durationSeconds >= MIN_OFFLINE_REPORT_SECONDS && creditedBtc > BigDecimal.ZERO
         val summary = when {
-            priorSummary != null && showSummary -> PendingOfflineSummary(
-                durationSeconds = (priorSummary.durationSeconds + report.durationSeconds).coerceAtMost(MAX_OFFLINE_SECONDS),
-                creditedBtc = GameNumber.fromString(priorSummary.creditedBtc).add(creditedBtc, GameNumber.MATH_CONTEXT).toPlainString(),
-                creditedAtWallMillis = report.creditedThroughWallMillis
-            )
+            priorSummary != null && showSummary -> {
+                val combinedDurationSeconds = priorSummary.durationSeconds + report.durationSeconds
+                val combinedHashrate = priorSummary.averageEffectiveHashrate?.let { previousRate ->
+                    report.effectiveHashrate?.let { currentRate ->
+                        BigDecimal(previousRate).multiply(
+                            BigDecimal.valueOf(priorSummary.durationSeconds),
+                            GameNumber.MATH_CONTEXT
+                        ).add(
+                            currentRate.multiply(BigDecimal.valueOf(report.durationSeconds), GameNumber.MATH_CONTEXT),
+                            GameNumber.MATH_CONTEXT
+                        ).divide(BigDecimal.valueOf(combinedDurationSeconds), GameNumber.MATH_CONTEXT)
+                    }
+                }
+                PendingOfflineSummary(
+                    durationSeconds = combinedDurationSeconds.coerceAtMost(BalanceConfig.MAX_PENDING_OFFLINE_SUMMARY_SECONDS),
+                    creditedBtc = GameNumber.fromString(priorSummary.creditedBtc).add(creditedBtc, GameNumber.MATH_CONTEXT).toPlainString(),
+                    creditedAtWallMillis = report.creditedThroughWallMillis,
+                    averageEffectiveHashrate = combinedHashrate?.toPlainString()
+                )
+            }
             priorSummary != null -> priorSummary
-            showSummary -> PendingOfflineSummary(report.durationSeconds, creditedBtc.toPlainString(), report.creditedThroughWallMillis)
+            showSummary -> PendingOfflineSummary(
+                report.durationSeconds,
+                creditedBtc.toPlainString(),
+                report.creditedThroughWallMillis,
+                report.effectiveHashrate?.toPlainString()
+            )
             else -> null
         }
 

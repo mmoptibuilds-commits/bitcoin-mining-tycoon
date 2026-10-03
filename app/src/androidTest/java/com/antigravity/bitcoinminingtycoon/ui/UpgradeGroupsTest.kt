@@ -6,6 +6,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.antigravity.bitcoinminingtycoon.model.GameState
 import com.antigravity.bitcoinminingtycoon.ui.screens.upgrades.UpgradesScreen
@@ -38,15 +40,19 @@ class UpgradeGroupsTest {
         }
 
         composeTestRule.onNodeWithContentDescription("Show Tapping upgrade track").performClick()
-        composeTestRule.onNodeWithText("COPPER FINGERS").performScrollTo().assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("COPPER FINGERS")
         composeTestRule.onNodeWithText("CPU BIOS VOLTAGE MOD").assertDoesNotExist()
 
+        composeTestRule.scrollToTop()
         composeTestRule.onNodeWithContentDescription("Show Infrastructure upgrade track").performClick()
-        composeTestRule.onNodeWithText("PRECISION UNDERVOLTING").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("CARBON NANOTUBE THERMAL PASTE").performScrollTo().assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("PRECISION UNDERVOLTING")
+        composeTestRule.scrollUntilTextDisplayed("CARBON NANOTUBE THERMAL PASTE")
 
+        composeTestRule.scrollToTop()
+        composeTestRule.onNodeWithContentDescription("Show Infrastructure upgrade track")
+            .performTouchInput { swipeLeft() }
         composeTestRule.onNodeWithContentDescription("Show Automation upgrade track").performClick()
-        composeTestRule.onNodeWithText("SIMULATED MARKET TICKER").performScrollTo().assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("SIMULATED MARKET TICKER")
         composeTestRule.onNodeWithText("COPPER FINGERS").assertDoesNotExist()
     }
 
