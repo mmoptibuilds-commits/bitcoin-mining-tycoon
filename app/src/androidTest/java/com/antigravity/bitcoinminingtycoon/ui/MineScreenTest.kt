@@ -59,28 +59,38 @@ class MineScreenTest {
         composeTestRule.onNodeWithText("Your facility").assertIsDisplayed()
         composeTestRule.onNodeWithText("Bitcoin").assertIsDisplayed()
         composeTestRule.onNodeWithText("Cash").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Turn Bitcoin into Cash").assertIsDisplayed()
+        composeTestRule.onNodeWithText("MARKET TELEMETRY").assertDoesNotExist()
+        composeTestRule.scrollUntilTextDisplayed("Sell Bitcoin for Cash")
 
         composeTestRule.onNodeWithContentDescription("Mine Bitcoin manually", substring = true)
             .assertHasClickAction()
             .performClick()
         assertEquals(1, tapCount)
 
-        composeTestRule.onNodeWithText("Sell MAX").performScrollTo().assertIsDisplayed().performClick()
+        composeTestRule.scrollUntilContentDescriptionDisplayed(
+            "Sell all of mined Bitcoin",
+            substring = true
+        )
+        composeTestRule.onNodeWithContentDescription("Sell all of mined Bitcoin", substring = true)
+            .assertIsDisplayed()
+            .performClick()
         assertEquals(100, sellPercent)
 
         composeTestRule.onNodeWithContentDescription("Show market details")
             .assertHeightIsAtLeast(48.dp)
             .performScrollTo()
             .performClick()
-        composeTestRule.onNodeWithText("Price history from this save", substring = true).assertIsDisplayed()
-        composeTestRule.onNodeWithText("Unlock Auto-Sell in Upgrades").performScrollTo().assertIsDisplayed().performClick()
+        composeTestRule.scrollUntilTextDisplayed("MARKET TELEMETRY")
+        composeTestRule.scrollUntilTextDisplayed("Price history from this save", substring = true)
+        composeTestRule.scrollUntilTextDisplayed("Unlock Auto-Sell in Upgrades")
+        composeTestRule.onNodeWithText("Unlock Auto-Sell in Upgrades").performClick()
         assertEquals(1, upgradeNavigationCount)
 
-        composeTestRule.onNodeWithText("Upgrade Power").performScrollTo().assertIsDisplayed().performClick()
+        composeTestRule.scrollUntilTextDisplayed("Facility health")
+        composeTestRule.scrollUntilTextDisplayed("Upgrade Power")
+        composeTestRule.onNodeWithText("Upgrade Power").performClick()
         assertEquals(2, upgradeNavigationCount)
-        composeTestRule.onNodeWithText("MARKET TELEMETRY").assertDoesNotExist()
-        composeTestRule.onNodeWithText("ENVIRONMENTAL TELEMETRY").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Facility health").fetchSemanticsNode()
     }
 
     @Test

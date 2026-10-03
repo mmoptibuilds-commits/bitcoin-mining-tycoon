@@ -5,6 +5,15 @@ import com.antigravity.bitcoinminingtycoon.data.GameSave
 import com.antigravity.bitcoinminingtycoon.data.SaveDataSource
 import com.antigravity.bitcoinminingtycoon.platform.FakeClockProvider
 import com.antigravity.bitcoinminingtycoon.viewmodel.GameViewModel
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.printToLog
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
@@ -37,4 +46,48 @@ internal class UiGameHarness(initialSave: GameSave = GameSave()) {
         coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     )
     val viewModel = GameViewModel(repository, clock)
+}
+
+/** Scrolls through a screen as a player would until a lazy/off-screen element is visible. */
+internal fun ComposeContentTestRule.scrollUntilTextDisplayed(
+    text: String,
+    substring: Boolean = false,
+    maxSwipes: Int = 60
+) {
+    scrollUntilDisplayed(maxSwipes) {
+        onNodeWithText(text, substring = substring, useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+}
+
+internal fun ComposeContentTestRule.scrollUntilContentDescriptionDisplayed(
+    description: String,
+    substring: Boolean = false,
+    maxSwipes: Int = 60
+) {
+    scrollUntilDisplayed(maxSwipes) {
+        onNodeWithContentDescription(description, substring, useUnmergedTree = true)
+            .assertIsDisplayed()
+    }
+}
+
+internal fun ComposeContentTestRule.scrollToTop(maxSwipes: Int = 20) {
+    repeat(maxSwipes) {
+        onRoot().performTouchInput { swipeDown() }
+        waitForIdle()
+    }
+}
+
+private fun ComposeContentTestRule.scrollUntilDisplayed(maxSwipes: Int, assertDisplayed: () -> Unit) {
+    repeat(maxSwipes) {
+        if (runCatching(assertDisplayed).isSuccess) return
+        val root = onRoot()
+        val rootHeight = root.fetchSemanticsNode().boundsInRoot.height
+        root.performTouchInput {
+            swipeUp(startY = rootHeight * 0.72f, endY = rootHeight * 0.52f, durationMillis = 250)
+        }
+        waitForIdle()
+    }
+    onRoot().printToLog("ScrollUntilTextDisplayed")
+    assertDisplayed()
 }

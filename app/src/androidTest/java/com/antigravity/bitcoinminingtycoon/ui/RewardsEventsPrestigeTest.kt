@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.antigravity.bitcoinminingtycoon.engine.OfflineReport
@@ -64,7 +65,7 @@ class RewardsEventsPrestigeTest {
         }
 
         composeTestRule.onNodeWithText("7-Day Continuous Cycle").assertIsDisplayed()
-        composeTestRule.onNodeWithText("CLAIM DAY 1 REWARD").performClick()
+        composeTestRule.onNodeWithText("CLAIM DAY 1 REWARD").performScrollTo().performClick()
         assertEquals(1, claims)
     }
 
@@ -74,7 +75,7 @@ class RewardsEventsPrestigeTest {
         composeTestRule.setContent {
             BitcoinMiningTycoonTheme {
                 OfflineReturnSheet(
-                    report = OfflineReport(3600.0, BigDecimal("1000"), BigDecimal("0.0001")),
+                    report = OfflineReport(3600.0, BigDecimal("1000000"), BigDecimal("0.0001")),
                     onCollect = { collections++ }
                 )
             }
@@ -82,8 +83,24 @@ class RewardsEventsPrestigeTest {
 
         composeTestRule.onNodeWithText("FACILITY OFFLINE REPORT").assertIsDisplayed()
         composeTestRule.onNodeWithText("+0.00010000 BTC").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Average Effective Hashrate").assertIsDisplayed()
+        composeTestRule.onNodeWithText("1.00 MH/s").assertIsDisplayed()
         composeTestRule.onNodeWithText("COLLECT OFFLINE PRODUCTION").performClick()
         assertEquals(1, collections)
+    }
+
+    @Test
+    fun olderOfflineSummaryShowsRateWasNotRecorded() {
+        composeTestRule.setContent {
+            BitcoinMiningTycoonTheme {
+                OfflineReturnSheet(
+                    report = OfflineReport(3600.0, null, BigDecimal("0.0001")),
+                    onCollect = {}
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Not recorded").assertIsDisplayed()
     }
 
     @Test
@@ -110,7 +127,7 @@ class RewardsEventsPrestigeTest {
 
         composeTestRule.onNodeWithText("RESET TO BASE").assertIsDisplayed()
         composeTestRule.onNodeWithText("PERMANENT").assertIsDisplayed()
-        composeTestRule.onNodeWithText("CONFIRM PRESTIGE RESET").performClick()
+        composeTestRule.onNodeWithText("CONFIRM PRESTIGE RESET").performScrollTo().performClick()
         assertEquals(1, confirmations)
     }
 }

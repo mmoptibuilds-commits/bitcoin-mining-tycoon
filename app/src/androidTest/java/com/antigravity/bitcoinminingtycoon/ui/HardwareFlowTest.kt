@@ -39,7 +39,7 @@ class HardwareFlowTest {
         }
 
         Miners.ALL.forEach { miner ->
-            composeTestRule.onNodeWithText(miner.name.uppercase()).performScrollTo().assertIsDisplayed()
+            composeTestRule.scrollUntilTextDisplayed(miner.name.uppercase())
         }
     }
 
@@ -66,7 +66,7 @@ class HardwareFlowTest {
         }
 
         composeTestRule.onNodeWithText("INFRASTRUCTURE LIMITING OUTPUT").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Open infrastructure upgrades").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Open infrastructure upgrades").assertIsDisplayed().performClick()
         assertEquals(1, openedUpgradeRoute)
     }
 

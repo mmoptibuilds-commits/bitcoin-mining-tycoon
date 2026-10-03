@@ -4,8 +4,11 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.swipeDown
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.antigravity.bitcoinminingtycoon.content.Miners
 import com.antigravity.bitcoinminingtycoon.data.GameSave
@@ -40,14 +43,16 @@ class FirstSessionLoopTest {
         }
 
         composeTestRule.onNodeWithText("Your facility").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Make your first Bitcoin").assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("Make your first Bitcoin")
+        composeTestRule.scrollUntilContentDescriptionDisplayed("Mine. Make your first Bitcoin")
         composeTestRule.onNodeWithContentDescription("Mine. Make your first Bitcoin").performClick()
         composeTestRule.waitUntil(10_000) {
             harness.repository.gameState.value.stats.totalManualTaps == 1L
         }
         assertTrue(TeachingCueIds.MINE_BITCOIN in harness.repository.gameState.value.completedTeachingCueIds)
-        composeTestRule.onNodeWithText("Turn Bitcoin into Cash").assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("Turn Bitcoin into Cash")
 
+        composeTestRule.scrollUntilContentDescriptionDisplayed("Sell all of mined Bitcoin", substring = true)
         composeTestRule.onNodeWithContentDescription("Sell all of mined Bitcoin", substring = true).performClick()
         composeTestRule.waitUntil(10_000) {
             harness.repository.gameState.value.usdBigDecimal == BigDecimal("5.00") &&
@@ -55,19 +60,37 @@ class FirstSessionLoopTest {
         }
 
         // The first $5 sale explains that Bitcoin can be mined again to reach the first machine cost.
-        composeTestRule.onNodeWithContentDescription("Mine Bitcoin manually", substring = true).performClick()
-        composeTestRule.waitUntil(10_000) {
-            harness.repository.gameState.value.stats.totalManualTaps == 2L
+        composeTestRule.scrollUntilContentDescriptionDisplayed("Mine Bitcoin manually", substring = true)
+        val mineButton = composeTestRule.onNodeWithContentDescription("Mine Bitcoin manually", substring = true)
+        mineButton.performScrollTo()
+        composeTestRule.onRoot().performTouchInput {
+            swipeDown(startY = height * 0.30f, endY = height * 0.40f, durationMillis = 250)
         }
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithContentDescription("Mine Bitcoin manually", substring = true).performClick()
+        try {
+            composeTestRule.waitUntil(10_000) {
+                harness.repository.gameState.value.stats.totalManualTaps == 2L
+            }
+        } catch (failure: Throwable) {
+            throw AssertionError(
+                "Expected one tap after the second Mine click; observed ${harness.repository.gameState.value.stats.totalManualTaps}; " +
+                    "readiness=${harness.repository.saveReadiness.value}; btc=${harness.repository.gameState.value.btc}; " +
+                    "cash=${harness.repository.gameState.value.usd}",
+                failure
+            )
+        }
+        composeTestRule.scrollUntilContentDescriptionDisplayed("Sell all of mined Bitcoin", substring = true)
         composeTestRule.onNodeWithContentDescription("Sell all of mined Bitcoin", substring = true).performClick()
         composeTestRule.waitUntil(10_000) {
             harness.repository.gameState.value.usdBigDecimal >= Miners.ALL.first().baseCostUsd &&
                 TeachingCueIds.SELL_BITCOIN in harness.repository.gameState.value.completedTeachingCueIds
         }
 
-        composeTestRule.onNodeWithText("Buy your first machine").assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("Buy your first machine")
         composeTestRule.onNodeWithContentDescription("Browse hardware. Buy your first machine").performClick()
         composeTestRule.onNodeWithText("ANCIENT CPU").assertIsDisplayed()
+        composeTestRule.scrollUntilContentDescriptionDisplayed("Purchase 1 Ancient CPU for", substring = true)
         composeTestRule.onNodeWithContentDescription("Purchase 1 Ancient CPU for", substring = true)
             .performScrollTo()
             .performClick()
@@ -77,7 +100,7 @@ class FirstSessionLoopTest {
         assertTrue(TeachingCueIds.BUY_FIRST_MACHINE in harness.repository.gameState.value.completedTeachingCueIds)
 
         composeTestRule.onNodeWithContentDescription("Mine tab").performClick()
-        composeTestRule.onNodeWithText("Your machine is mining").assertIsDisplayed()
+        composeTestRule.scrollUntilTextDisplayed("Your machine is mining")
         assertEquals(1L, harness.repository.gameState.value.miners["ancient_cpu"])
     }
 }
