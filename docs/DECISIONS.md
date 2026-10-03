@@ -1,6 +1,6 @@
 # Active decision log — v1.2
 
-Updated 2026-09-30. Prior dashboard/four-equal-tab/Antigravity-only initial-build decisions are superseded by this log; the original history remains on v1.0.
+Updated 2026-10-03. Prior dashboard/four-equal-tab/Antigravity-only initial-build decisions are superseded by this log; the original history remains on v1.0.
 
 | Decision | Result and rationale |
 |---|---|
@@ -22,10 +22,11 @@ Updated 2026-09-30. Prior dashboard/four-equal-tab/Antigravity-only initial-buil
 | D16 Harness | Codex/GPT-6 Luna Max owns full implementation, verification and fixes; optional Antigravity second pass at a stable commit; same evidence gates and no concurrent writers |
 | D17 Test surface | Android Studio emulators; no USB phone requirement; physical behavior explicitly unverified |
 | D18 Branding | Replace Android robot icon, adaptive/themed layers, coherent system splash/App Info/recents/About |
-| D19 Versions | Preserve main and v1.0; active v1.2; future version branches retained; no invented v1.1 |
-| D20 Scope | Sideload minified APK; no Play publication or user-facing backup feature in this redesign |
+| D19 Versions | Preserve main, v1.0 and v1.2; the v1.2 redesign was integrated into main with explicit user authorization on 2026-10-03; future version branches are retained; no invented v1.1 |
+| D20 Scope | Sideload minified APK; no Play publication or user-facing backup feature in this redesign. A GitHub Release is considered only after release gates and production signing are available. |
 | D21 Toolchain | Current API 36 and working stable dependencies retained until an evidence-backed scoped upgrade is needed |
 | D22 Agent quality | Requirements live once; per-milestone meaningful checks, truthful blockers; no repeated full suite solely for ceremonial completion |
+| D23 Public release | The user asked to publish a GitHub Release if possible on 2026-10-03. Do not publish the current workspace APK: it uses a local debug key, external version/signing history is unknown, GitHub release lookup returned `Forbidden`, and `gh` authentication is invalid. Revisit when an authorized production signing key and working release access are available. |
 
 ## Implementation rulings
 

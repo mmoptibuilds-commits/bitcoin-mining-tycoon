@@ -96,7 +96,7 @@ Replace template Android robot artwork with a graphite/copper silicon/hash mark:
 
 ## F24 — Version history and packaging
 
-Preserve existing branches; v1.0 is the baseline archive, v1.2 the active redesign. App versionName 1.2.0 and monotonically higher versionCode when implementation is ready. Keep package/storage/signing identity; final APK can update the old install. Record release artifact checksum, commit, schema and signing certificate fingerprint without secrets. No release tag from docs preparation alone.
+Preserve existing branches; `v1.0` is the baseline archive and `v1.2` remains the version line. The completed v1.2 redesign was integrated into `main` on 2026-10-03. App versionName is `1.2.0` and versionCode is `2`; verify no higher code has been distributed before release. Keep package/storage/signing identity and valid saves. Record the release artifact checksum, commit, schema and signing certificate fingerprint without secrets. Create a release tag only after `RELEASE_CHECKLIST.md` passes and a production signing identity is available.
 
 ## F25 — Release and repository quality
 

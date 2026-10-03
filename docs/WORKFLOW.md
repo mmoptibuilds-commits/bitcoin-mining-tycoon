@@ -2,7 +2,7 @@
 
 ## Preparation and authority
 
-The v1.2 branch has requirements and execution guidance; runtime redesign remains to be built. Read AGENTS, CURRENT_STATE, PRD, FEATURES and PROJECT_PLAN, then milestone-specific docs. Do not scaffold a new app or reread all vendored Android references on every turn.
+The v1.2 redesign is implemented and integrated into `main`; `v1.0` and `v1.2` remain preserved version-history branches. The P1/P2 materials in PROMPTS and the implementation plan record the original completed work. Read AGENTS, CURRENT_STATE, PRD, FEATURES and PROJECT_PLAN, then the documents relevant to the current task. Do not scaffold a new app or reread all vendored Android references on every turn.
 
 Product requirements are canonical; plans select an implementation path; CURRENT_STATE is the progress/evidence ledger. Update the ledger after a meaningful milestone or blocker. Keep detailed logs/screenshots under ignored artifacts and put concise proof in the ledger.
 
@@ -10,7 +10,7 @@ Product requirements are canonical; plans select an implementation path; CURRENT
 
 1. Select the user-chosen GPT-6 Luna/Max in the harness.
 2. Use P1 `/plan` to inspect live source/tooling and refine M0–M7 into executable tasks with exact files, meaningful tests and commands. Preserve locked decisions; raise only genuinely blocking gaps.
-3. After user approves that implementation path, activate P2 `/goal`. Implement all F01–F25 and M0–M7; verify between milestones and push scoped commits to v1.2.
+3. The original v1.2 P1/P2 implementation is complete. For new work, make a task-specific plan and use the branch the user names. The current integrated default is `main`; only update the `v1.2` line when the task targets it.
 4. Use P3 to resume without redoing completed commits; P4 targets an individual milestone when needed.
 5. Finish with P7's read-only audit, resolve confirmed findings in Codex and rerun affected checks. Report exact SHA, evidence, candidate APK and outstanding constraints. Stop writing before any optional handoff.
 

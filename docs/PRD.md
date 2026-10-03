@@ -1,6 +1,6 @@
 # v1.2 product requirements
 
-Status: approved direction; implementation pending. Updated 2026-09-30.
+Status: approved; v1.2 implementation is integrated into `main` and retained on `v1.2`; public release acceptance remains partial. Updated 2026-10-03. See `CURRENT_STATE.md` for tested behavior and remaining release gates.
 
 ## Product
 

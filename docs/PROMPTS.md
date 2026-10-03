@@ -1,6 +1,8 @@
 # Copy-paste prompts — v1.2
 
-Use the repository checkout on branch v1.2. Select GPT-6 Luna/Max in Codex before starting. These prompts do not configure a model or bypass harness permissions. Product docs contain the complete F01–F25 acceptance contract, so they remain authoritative through long sessions and compaction.
+> **Archive status — 2026-10-03:** P1/P2 and their P3/P4 continuations document the original v1.2 planning and implementation, which is complete and integrated into `main`. The original prompts below retain the branch constraints in effect when they were approved; the user later explicitly authorized the normal merge to `main` (`221c548`). Do not rerun these prompts as if the redesign were pending. For current status use [CURRENT_STATE](CURRENT_STATE.md) and [WORKFLOW](WORKFLOW.md). The P5–P7 text is optional verification guidance, not evidence that those remaining checks have passed.
+
+Product docs contain the complete F01–F25 acceptance contract. These prompts do not configure a model or bypass harness permissions.
 
 Recommended Codex sequence: **P1 → approve plan → P2 → P7 → fix findings and rerun affected checks**. Codex owns full implementation, verification and fixes. P3 resumes interrupted work; P4 limits a session to a milestone. Optional Antigravity second pass: **P5 → approve verification/fix path → P6 → P7** at a stable pushed commit, after Codex stops and writing ownership transfers. Both paths have the same completion evidence; Antigravity access is not required. Read WORKFLOW and SETUP_WINDOWS first.
 

@@ -1,6 +1,6 @@
 # App identity and Android finishing details
 
-F23/F24 are required release features, not optional decoration. Baseline has the default Android robot launcher foreground and green grid background, referenced by the manifest. There is no custom game icon yet.
+F23/F24 are required release features, not optional decoration. The v1.0 baseline used Android's robot launcher foreground and green grid background. M6 replaced those resources with an original graphite/copper silicon/hash-channel mark, adaptive/round/themed icon layers and an Android 12+ system splash. Resource/package tests pass; launcher masks, App Info, recents and splash transition still need direct emulator inspection. See `CURRENT_STATE.md` for current evidence.
 
 ## Visual identity
 
@@ -23,13 +23,13 @@ Check home launcher, app drawer, themed icons where supported, App Info, recent-
 
 ## Packaging and save continuity
 
-Package stays `com.antigravity.bitcoinminingtycoon`; retain storage path. Set versionName 1.2.0 and a versionCode higher than the installed baseline. Baseline minified release uses the debug signing configuration: describe it honestly as a test/sideload build. Reuse the actual signing key/certificate of the old install to update it. Generating a different debug key on another machine does not preserve installation compatibility; never suggest uninstalling to bypass this.
+Package stays `com.antigravity.bitcoinminingtycoon`; retain storage path. Current app versionName is `1.2.0` and versionCode is `2`; verify it exceeds every external install before release. The local minified candidate uses the workspace debug signing configuration and is a test/sideload build, not a public release. Reuse the actual signing key/certificate of the old install to update it. Generating a different debug key on another machine does not preserve installation compatibility; never suggest uninstalling to bypass this.
 
-Signing keys/passwords stay outside Git. Record public signing certificate fingerprint, APK SHA-256, commit, build commands and tested emulator/API. Store distribution APKs in release/artifact storage, not source control. Do not introduce Play Store publication work.
+Signing keys/passwords stay outside Git. Record public signing certificate fingerprint, APK SHA-256, commit, build commands and tested emulator/API. Store distribution APKs in release/artifact storage, not source control. A GitHub Release was requested if publishable, but the current debug-signed artifact and unavailable release access do not satisfy that gate. Do not introduce Play Store publication work.
 
 ## Acceptance
 
-No template robot/grid remains in applicable icon resources; all layers resolve; color/monochrome masks are readable. Emulators verify launcher/App Info/recents and launches without duplicate splash or white flash. Signed in-place update test retains v1 save. Physical phone launcher differences, actual haptic feel and phone performance are not verified by this setup.
+No template robot/grid remains in applicable icon resources; all layers resolve; color/monochrome masks are readable. API31 verifies About metadata and release launch; the signed in-place update test retains the seeded v1 save. Launcher/App Info/recents masks, splash transition, API36, physical phone launcher differences, actual haptic feel and phone performance remain unverified.
 
 ## Official references
 

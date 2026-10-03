@@ -1,6 +1,8 @@
 # Current state and evidence ledger
 
-Updated 2026-10-03. Active branch v1.2. Baseline v1.0 commit `33787bc4fa61ea4f78de06b7b81dd4094371cf39`.
+Updated 2026-10-03. Integrated branch `main`; preserved version lines `v1.0` and `v1.2`. Baseline v1.0 commit `33787bc4fa61ea4f78de06b7b81dd4094371cf39`.
+
+The dated M0–M6 sections below are milestone-time records and remain unchanged where they document what was known then. Their no-emulator statements are superseded by the later API31/API36 results in M7 and the post-merge update below.
 
 ## Status
 
@@ -8,13 +10,13 @@ Updated 2026-10-03. Active branch v1.2. Baseline v1.0 commit `33787bc4fa61ea4f78
 |---|---|---|
 | Repo preparation | docs/guidance/version branches/cleanup delivered | recorded preparation checks below; no Android build claimed |
 | M0 workstation/baseline | baseline JVM/lint/debug checks, serializer fixtures and SDK/AVD setup recorded | API31 x86_64 TCG AVD runs without KVM; API36 x86_64 AVD image is installed but its framework did not finish booting under TCG; Android Studio/Device Manager absent |
-| M1 save compatibility/correctness | schema-1/2 migrations, schema-3 recovery contract and deterministic runtime implemented on v1.2 | JVM/build/lint pass; API31 connected UI suite passes 26/26; seeded schema-1 release update to v1.2 preserves prior fields and unlock data |
-| M2 economy/content | software implemented on v1.2 | JVM content/economy/policy suites and API31 Compose checks cover market, sale routes, hardware tiers and system remedies; wider guided flows remain partial |
-| M3 home/teaching/navigation | implemented on v1.2; acceptance partial | API31 Compose tests pass first-session loop and facility navigation; migrated facility screenshot captured; TalkBack and large-font observation remain |
-| M4 facility scene/feedback | implemented on v1.2; acceptance partial | all ten scenes and rapid-tap feedback tests pass on API31; physical vibration feel and API36 rendering remain unverified |
-| M5 hardware/upgrades/systems/stats/settings | implemented on v1.2; acceptance partial | API31 suite covers all hardware tiers, power/cooling remedies, upgrade groups, stats, settings, rewards and prestige preview; font-scale/TalkBack remain |
-| M6 Android identity | implemented on v1.2; acceptance partial | API31 minified release install/launch, About version metadata and retained-data update pass; launcher masks, App Info, recents and splash transition not inspected |
-| M7 full release/audit | implementation and audit delivered; release acceptance partial | full JVM/build validation, API31 26/26 connected suite, minified release smoke and signed schema-1→3 update pass; API36 framework boot, external signer/version history and device accessibility checks remain |
+| M1 save compatibility/correctness | schema-1/2 migrations, schema-3 recovery contract and deterministic runtime implemented on v1.2 and integrated into main | JVM/build/lint pass; API31 connected UI suite passes 26/26; seeded schema-1 release update to v1.2 preserves prior fields and unlock data |
+| M2 economy/content | software implemented on v1.2 and integrated into main | JVM content/economy/policy suites and API31 Compose checks cover market, sale routes, hardware tiers and system remedies; wider guided flows remain partial |
+| M3 home/teaching/navigation | implemented on v1.2 and main; acceptance partial | API31 Compose tests pass first-session loop and facility navigation; migrated facility screenshot captured; TalkBack and large-font observation remain |
+| M4 facility scene/feedback | implemented on v1.2 and main; acceptance partial | all ten scenes and rapid-tap feedback tests pass on API31; physical vibration feel and API36 rendering remain unverified |
+| M5 hardware/upgrades/systems/stats/settings | implemented on v1.2 and main; acceptance partial | API31 suite covers all hardware tiers, power/cooling remedies, upgrade groups, stats, settings, rewards and prestige preview; font-scale/TalkBack remain |
+| M6 Android identity | implemented on v1.2 and main; acceptance partial | API31 minified release install/launch, About version metadata and retained-data update pass; launcher masks, App Info, recents and splash transition not inspected |
+| M7 full release/audit | implementation merged and audit delivered; public release acceptance partial | main merge tree matches v1.2; fresh full JVM/build validation and earlier API31 26/26 connected suite pass; minified release smoke and signed schema-1→3 update pass; API36, public signing/auth and device accessibility checks remain |
 
 ## Preparation evidence — 2026-09-30
 
@@ -154,7 +156,7 @@ Do not mark M6 fully accepted until external version history is reconciled and t
 
 ## M7 release audit evidence — 2026-10-03
 
-M7 implementation is complete on v1.2; release acceptance remains partial. API31 emulator, final release launch and signed in-place schema-1 update evidence now exist. API36 framework startup without KVM, external distribution history, process-death UI and accessibility/identity observations remain.
+M7 implementation is complete on v1.2 and integrated into `main`; public release acceptance remains partial. API31 emulator, final release launch and signed in-place schema-1 update evidence exist. API36 framework startup without KVM, external distribution history, complete process-death UI and accessibility/identity observations remain.
 
 | Check | Performed evidence |
 |---|---|
@@ -165,10 +167,18 @@ M7 implementation is complete on v1.2; release acceptance remains partial. API31
 | Update screenshots and save | artifacts/m7/api31-v1.0-release-final-profile.png, artifacts/m7/api31-v1.2-final-offline-rate-report.png, artifacts/m7/api31-v1.2-final-offline-rate-save.json and artifacts/m7/api31-v1.2-final-release-after-rate-relaunch.png record the final profile. Earlier M7 screenshots are retained for comparison. During a cold v1.0 TCG launch Android displayed a transient System UI not-responding prompt; choosing Wait restored the guest, after which the app screen and update succeeded. |
 | Final release metadata | Package com.antigravity.bitcoinminingtycoon, version 1.2.0 / code 2, minSdk 31, target/compile 36, schema 3, balance rules 2. Final release SHA-256: 376eb4241f878675a3972bd152e0e398b9e64fc866ccd37c6e1bfaa4453d1035. Signer SHA-256: e8c7f74bc7c2e017e55880394510c4c2df728e6cb8e6cd45bb4835a89eb84932. It is signed with the local debug key, not a public release identity. Release manifest has no INTERNET permission. |
 | API36 attempt | BMT_API36 x86_64 image is installed. Default startup failed because this host has no KVM. Emulator help documents -accel off and -no-window; the TCG guest appeared on ADB but framework services did not become available after over four minutes at full CPU. It was terminated without installing the app. Android Studio/Device Manager and /dev/kvm are absent. |
-| Final branch refs | After the scoped push, origin/main is `ce703755622f9913c3a4cc17919e9049f4d6b984` (existing PR #2 merge of `f911b9f` and the earlier v1.2 `a5585a1`), origin/v1.0 is unchanged at `33787bc4fa61ea4f78de06b7b81dd4094371cf39`, and origin/v1.2 is `45b43b0cde7b2b1feefb33fe22d989abdcee61ab`. This work pushed only to v1.2; no force push, branch reset or tag creation occurred. |
-| Remaining acceptance | API31 connected UI, final minified release launch and v1.0→v1.2 in-place save migration are proven. API36 release launch, end-to-end post-process-death collection and duplicate-claim lifecycle, 1.5 font-scale/TalkBack, tactile feel, launcher masks/App Info/recents and cold/warm system-splash inspection remain. GitHub release lookup returned Forbidden, so external version-code or signing history is unknown. |
+| Branch integration | User authorized promoting v1.2 to main on 2026-10-03. Normal merge commit `221c548` integrated the v1.2 tree into main with no conflict; the tree matched v1.2 at merge. `v1.0` remains at `33787bc4fa61ea4f78de06b7b81dd4094371cf39`, and both historical branches were retained. No force push, branch deletion, history rewrite or release tag occurred. |
+| Remaining acceptance | API31 connected UI, final minified release launch and v1.0→v1.2 in-place save migration are proven. API36 release launch, end-to-end post-process-death collection and duplicate-claim lifecycle, 1.5 font-scale/TalkBack, tactile feel, launcher masks/App Info/recents and cold/warm system-splash inspection remain. External version-code/signing history is unverified. GitHub release list returned `Forbidden`; current `gh auth status` reports invalid authentication. The workspace APK uses a debug key, so no public release was created. |
 
 Exact validation commands, ADB install/update sequence and journey-by-journey results are in docs/TEST_STRATEGY.md. Physical USB is not required; Device Manager or a hardware-accelerated API36 host is still required for the remaining checks. Never uninstall or clear the dedicated update profile.
+
+## Main integration and documentation status — 2026-10-03
+
+The user explicitly authorized a normal `v1.2` → `main` merge. Merge commit `221c548` is on main and has the same source tree as the `v1.2` head used for API31 connected testing. `v1.0` and `v1.2` remain separate named branch refs; this promotion did not create a release tag.
+
+On the merged tree, `bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks lintDebug lintRelease assembleDebug assembleRelease compileDebugAndroidTestKotlin` passed: 38 JVM XML suites / 194 tests, 0 failures/errors/skips; both lint tasks, debug/release packaging and instrumentation Kotlin compilation passed. The API31 connected suite had already passed 26/26 on the identical source/test tree.
+
+A GitHub Release was requested only if publishable. It is not publishable from this environment: `gh release list --repo mmoptibuilds-commits/bitcoin-mining-tycoon --limit 10` returned `Forbidden`, `gh auth status` reported invalid authentication, the APK certificate is a local debug identity, and external signing/version history is unverified. No release or tag was created. See [INSTALLATION.md](INSTALLATION.md) for safe developer install steps and the public package status.
 
 ## Existing implementation observed in source
 

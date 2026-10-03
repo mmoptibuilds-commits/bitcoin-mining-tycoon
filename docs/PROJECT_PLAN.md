@@ -10,9 +10,11 @@
 
 **Spec:** PRD + FEATURES; GAME_DESIGN/ECONOMY_BALANCE and DESIGN_SYSTEM/UX_SPEC/APP_IDENTITY define behavior. SAVE_COMPATIBILITY governs data. Current implementation status is CURRENT_STATE.
 
+**Execution status — 2026-10-03:** The v1.2 implementation was completed on the retained `v1.2` line and integrated into `main` by user-authorized merge commit `221c548`. Source/build checks and the API31 connected suite passed; complete release acceptance is still partial. The checklist below is the original implementation roadmap. Use [CURRENT_STATE](CURRENT_STATE.md), [TEST_STRATEGY](TEST_STRATEGY.md) and [RELEASE_CHECKLIST](RELEASE_CHECKLIST.md) for outcomes and remaining gates. The M0–M6 no-emulator notes describe the environment at those milestone dates and are superseded by the later API31/API36 attempt recorded in M7.
+
 ## Global constraints
 
-minSdk 31; current compile/target 36 until justified; stable dependencies; portrait; applicationId `com.antigravity.bitcoinminingtycoon`; save preservation/signing continuity; no network/backend/real crypto; 12-hour offline cap; original Canvas/vector; graphite/copper; no phone USB requirement; branches preserved; work/push v1.2; no main merge/release tag before release evidence.
+minSdk 31; current compile/target 36 until justified; stable dependencies; portrait; applicationId `com.antigravity.bitcoinminingtycoon`; save preservation/signing continuity; no network/backend/real crypto; 12-hour offline cap; original Canvas/vector; graphite/copper; no phone USB requirement; preserve `main`, `v1.0`, `v1.2` and all history; branch promotion requires explicit user direction; no release tag or publication before release evidence and production signing.
 
 ## Review focus
 
@@ -117,14 +119,14 @@ minSdk 31; current compile/target 36 until justified; stable dependencies; portr
 
 **Update:** TEST_STRATEGY acceptance matrix/evidence, CURRENT_STATE, CHANGELOG and release record. **Outputs:** ignored reports/screenshots/traces, installable minified APK with SHA-256 and public certificate fingerprint.
 
-- [ ] Run full JVM, simulations, lintDebug/lintRelease, Compose instrumentation and all emulator journeys on API31 and current configured target class (API36 baseline), sequentially.
-- [ ] Install/run minified candidate APK and execute release smoke, process death and in-place save upgrade. Unit-only journeys are insufficient.
-- [ ] Audit all F01–F25, the five review-focus cases and release checklist; fix confirmed release blockers and rerun affected checks.
-- [ ] Push scoped commits to v1.2; update ledger with exact SHA/commands/results and any unavailable checks. Keep main/v1.0 untouched.
+- [x] Run full JVM, simulations, lintDebug/lintRelease, Compose instrumentation compilation, debug/release assembly and API31 connected Compose suite. The final JVM suite passed 194 tests; 26 API31 UI tests passed. API36 did not finish booting under TCG, and the complete nine guided journeys remain partial.
+- [x] Install/run the minified candidate on API31 and perform the signed v1.0→v1.2 in-place schema-1 update without uninstall or data clear. A force-stop/relaunch restored the offline report; broader collection/duplicate-claim process-death coverage remains open.
+- [x] Map F01–F25 to source/tests/evidence and record the release checklist. API36, accessibility, launcher/splash observations and external signing/version history remain release blockers.
+- [x] Push scoped implementation/docs commits to v1.2. The user later authorized integration into main; merge commit `221c548` was pushed normally on 2026-10-03. `v1.0` and `v1.2` were retained; no force push, history rewrite or branch deletion occurred.
 - [ ] Run P7's read-only audit in Codex, using an independent reviewer when supported; resolve confirmed findings and rerun affected checks. An optional Antigravity P5/P6 second pass uses the same gates at a stable pushed SHA; transfer writing ownership only after Codex stops. Antigravity access is not required for completion.
 - [ ] When all emulator/local-release gates actually pass, record accepted commit/version/artifact. Create version tag only under authorized release scope; keep old branches. Physical phone limitations remain explicit.
 
-**Done:** requirements and emulator-local APK evidence agree; no known release-blocking crash, data loss, incorrect economy, inaccessible core action or default app artwork.
+**Status:** implementation and API31 local APK evidence are recorded. Release acceptance remains partial; do not mark the public-release gate complete until the remaining checks in RELEASE_CHECKLIST pass and a production signing identity is verified.
 
 ## Per-milestone record
 

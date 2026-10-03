@@ -37,7 +37,7 @@ adb devices -l
 
 ## M7 audit record — 2026-10-03
 
-The v1.2 redesign implementation is complete on the dedicated branch. Final validation includes 38 JVM XML suites, the API31 connected Compose suite, a minified release install/update smoke, and a schema-1 old-save migration. The results below keep host limitations separate from checks that passed.
+The v1.2 redesign implementation is complete on the retained version branch and integrated into `main`. M7 validation includes 38 JVM XML suites, the API31 connected Compose suite, a minified APK install/update smoke, and a schema-1 old-save migration. The results below keep host limitations separate from checks that passed.
 
 - Full JVM validation: `bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks` passed 194 tests in 38 suites, 0 failures/errors/skips. The exact post-rate-fix result is retained at `artifacts/m7/final-offline-rate-validation.log`.
 - API31 connected suite: `bash ./gradlew --no-daemon --console=plain connectedDebugAndroidTest` passed 26 tests, 0 failures/errors/skips on `emulator-5554` (API31, x86_64, software TCG). Results are in `artifacts/m7/api31-connected-final-offline-rate-fix.log` and `app/build/outputs/androidTest-results/connected/debug/TEST-emulator-5554 - 12-_app-.xml`.
@@ -46,6 +46,16 @@ The v1.2 redesign implementation is complete on the dedicated branch. Final vali
 - API31 update profile: the locally rebuilt v1.0 release and v1.2 release share certificate SHA-256 `e8c7f74bc7c2e017e55880394510c4c2df728e6cb8e6cd45bb4835a89eb84932`. A serializer-generated schema-1 fixture was staged in the v1.0 app, the app was updated in place using `adb install -r`, and the resulting schema-3 save retained balances, miners, infrastructure, prestige points/nodes, onboarding and settings. No uninstall/data clear occurred during the profile. The v1.2 release was relaunched and the facility screen plus offline report were inspected.
 - API36 limitation: the installed x86_64 image could not start with default acceleration because `/dev/kvm` is absent. Supported `-accel off -no-window` options started a TCG process, but its framework did not finish booting after more than four minutes at full CPU. No API36 app install/launch is claimed. Android Studio/Device Manager are absent; API31 was run through the native emulator/ADB CLI.
 - External release limitation: GitHub release-history lookup returned `Forbidden`; no tags exist. Version code `2` is above the tracked v1.0 code `1`, but externally distributed higher codes or signing identities remain unknown. The local release APK is debug-key signed and is not a public release artifact.
+
+### Main integration validation — 2026-10-03
+
+The user authorized integrating `v1.2` into `main`; normal merge commit `221c548` has the same source tree as the connected-tested `v1.2` tree. The final validation command was run on merged `main`:
+
+~~~bash
+bash ./gradlew --no-daemon --console=plain testDebugUnitTest --rerun-tasks lintDebug lintRelease assembleDebug assembleRelease compileDebugAndroidTestKotlin
+~~~
+
+It passed in 3m18s: 38 JVM XML suites / 194 tests, 0 failures/errors/skips; `lintDebug`, `lintRelease`, debug/release assembly and Android-test Kotlin compilation all succeeded. Each lint task reported 12 warnings and 0 errors. The connected API31 suite had already passed 26/26 on the identical source/test tree. `v1.0` and `v1.2` remain separate branch refs. No tag or public release was created; GitHub release access was `Forbidden`, CLI authentication invalid, and the APK uses a debug signing key. See [INSTALLATION.md](INSTALLATION.md) for the current package availability and safe update instructions.
 
 Exact Linux validation commands from the repository root:
 

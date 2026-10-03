@@ -2,7 +2,7 @@
 
 ## Mission and authority
 
-Implement the approved v1.2 redesign on `v1.2`, preserving the working local engine and existing player saves. This is an existing Android project, not a scaffold/build-pack task. Read `docs/CURRENT_STATE.md`, `docs/PRD.md`, `docs/FEATURES.md`, `docs/PROJECT_PLAN.md` and the documents relevant to the current milestone.
+The v1.2 redesign is implemented and integrated into `main`; the `v1.0` baseline and `v1.2` version branches remain available. Preserve the working local engine and existing player saves. This is an existing Android project, not a scaffold/build-pack task. Read `docs/CURRENT_STATE.md`, `docs/PRD.md`, `docs/FEATURES.md`, `docs/PROJECT_PLAN.md` and the documents relevant to the current task.
 
 Product rules live in the product docs; implementation order in PROJECT_PLAN; evidence in CURRENT_STATE. If a plan contradicts a requirement, satisfy the requirement and record the ruling in DECISIONS. Do not repeat already answered questions. The user approves the implementation plan once; then complete its authorized milestones without routine permission requests.
 
@@ -47,6 +47,6 @@ One writer owns production changes at a time. Independent reviewers are read-onl
 
 ## Git and completion
 
-Follow VERSION_CONTROL. Preserve `main`, `v1.0` and all historical version branches. Work on `v1.2`; no force push, branch deletion, rebase of published history or merge into main. Make scoped commits and push authorized work to v1.2. Do not tag a release before RELEASE_CHECKLIST passes.
+Follow VERSION_CONTROL. Preserve `main`, `v1.0`, `v1.2` and all historical version branches. The user explicitly authorized the v1.2-to-main integration completed on 2026-10-03; future promotion between branches still requires explicit user direction. Do not force-push, delete branches, or rewrite published history. Make scoped commits and push only to the authorized target branch. Do not create a release tag or publish a package until RELEASE_CHECKLIST passes and the production signing identity/version are verified.
 
 Keep CURRENT_STATE accurate after each milestone, including blockers and unverified checks. Complete only when all feature acceptance checks and the emulator/local APK release gates pass. Physical vibration feel and real-phone performance remain unverified under the approved emulator-only setup; do not make claims about them.
